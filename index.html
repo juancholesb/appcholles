@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockMaster Pro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ==================== LOGIN ==================== -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">StockMaster Pro</div>
+    <div class="login-sub">Sistema de gestión de inventario</div>
+    <div class="role-tabs">
+      <button class="role-tab admin active" onclick="setRole('admin')">👑 Administrador</button>
+      <button class="role-tab emp"          onclick="setRole('empleado')">👤 Empleado</button>
+    </div>
+    <div class="fg">
+      <label>Usuario</label>
+      <input type="text" id="loginUser" placeholder="usuario" />
+    </div>
+    <div class="fg">
+      <label>Contraseña</label>
+      <input type="password" id="loginPass" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+    <button class="btn-login admin" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <div class="login-hint">
+      <strong>Demo:</strong><br>
+      👑 Admin &rarr; <code>choles</code> / <code>admin2006</code><br>
+      👤 Empleado &rarr; <code>empleado</code> / <code>emp123</code>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APP ==================== -->
+<div id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">StockMaster Pro</div>
+    <div class="topbar-right">
+      <span class="user-name" id="topUser"></span>
+      <span class="role-badge" id="topRole"></span>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar" id="sidebar"></div>
+
+    <div class="main">
+
+      <!-- DASHBOARD -->
+      <div class="page" id="page-dashboard">
+        <div class="page-header">
+          <div class="page-title">📊 Dashboard</div>
+        </div>
+        <div class="stats-grid" id="stats"></div>
+        <h3 style="font-size:13px;margin-bottom:14px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
+          Últimas transacciones
+        </h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Fecha</th><th>Empleado</th><th>Productos</th><th>Total</th><th>Tipo</th></tr>
+            </thead>
+            <tbody id="dashSales"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- INVENTARIO -->
+      <div class="page" id="page-inventario">
+        <div class="page-header">
+          <div class="page-title">📦 Inventario General</div>
+          <div class="toolbar">
+            <div class="search-bar">
+              <input type="text" id="invSearch" placeholder="Buscar..." oninput="renderInventory()" />
+            </div>
+            <button class="btn btn-primary" onclick="openProductModal()">+ Agregar producto</button>
+          </div>
+        </div>
+        <div class="info-box">
+          ℹ️ Aquí defines los productos con su precio costo y precio mayorista.
+          Luego ve a <strong>Asignar a Empleados</strong> para darle stock y precio de venta a cada empleado.
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th><th>Categoría</th><th>Precio Costo</th>
+                <th>P. Mayorista</th><th>Stock Total</th><th>Estado</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="inventoryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ASIGNAR A EMPLEADOS -->
+      <div class="page" id="page-asignar">
+        <div class="page-header">
+          <div class="page-title">🎯 Asignar Stock y Precios</div>
+        </div>
+        <div class="info-box">
+          Selecciona un empleado y asígnale qué productos puede vender,
+          cuántas unidades tiene disponibles y a qué precio debe venderlos.
+        </div>
+        <div class="fg" style="max-width:300px;">
+          <label>Seleccionar empleado</label>
+          <select id="assignEmpSel" onchange="renderAssignTable()">
+            <option value="">-- Elige un empleado --</option>
+          </select>
+        </div>
+        <div id="assignTableWrap"></div>
+      </div>
+
+      <!-- VENTAS ADMIN -->
+      <div class="page" id="page-ventas">
+        <div class="page-header">
+          <div class="page-title">🧾 Historial de Ventas</div>
+          <div class="toolbar">
+            <div class="search-bar">
+              <input type="text" id="salesSearch" placeholder="Buscar..." oninput="renderSales()" />
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Fecha</th><th>Empleado</th><th>Productos</th><th>Total</th><th>Tipo</th><th>Nota</th></tr>
+            </thead>
+            <tbody id="salesBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- EMPLEADOS -->
+      <div class="page" id="page-empleados">
+        <div class="page-header">
+          <div class="page-title">👥 Empleados</div>
+          <button class="btn btn-primary" onclick="openEmpModal()">+ Agregar empleado</button>
+        </div>
+        <div id="empCards"></div>
+      </div>
+
+      <!-- NUEVA VENTA (empleado) -->
+      <div class="page" id="page-nueva-venta">
+        <div class="page-header">
+          <div class="page-title">🛍️ Registrar Venta</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;">
+
+          <!-- Izquierda: carrito -->
+          <div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;">
+              <h4 style="margin-bottom:14px;font-size:15px;">Agregar al carrito</h4>
+              <div class="fg">
+                <label>Producto</label>
+                <select id="pvProduct" onchange="onPvProductChange()">
+                  <option value="">-- Selecciona --</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <div class="fg"><label>Cantidad</label><input type="number" id="pvQty" min="1" value="1" /></div>
+                <div class="fg">
+                  <label>Precio unitario ($)</label>
+                  <input type="number" id="pvPrice" step="0.01" readonly
+                         style="opacity:.7;cursor:not-allowed;" title="El precio lo fija el administrador" />
+                </div>
+              </div>
+              <div id="pvStockInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+              <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="addToCart()">
+                + Agregar al carrito
+              </button>
+            </div>
+
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;">
+              <h4 style="margin-bottom:14px;font-size:15px;">🛒 Carrito</h4>
+              <div id="cartItems"></div>
+              <div class="cart-total" id="cartTotal">Total: $0.00</div>
+              <div class="fg" style="margin-top:14px;">
+                <label>Nota</label>
+                <input type="text" id="pvNote" placeholder="Cliente, pedido, etc." />
+              </div>
+              <button class="btn btn-success" style="width:100%;justify-content:center;margin-top:6px;" onclick="confirmSale()">
+                ✅ Confirmar venta
+              </button>
+            </div>
+          </div>
+
+          <!-- Derecha: inventario del empleado -->
+          <div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;">
+              <h4 style="margin-bottom:14px;font-size:15px;">📋 Mi inventario asignado</h4>
+              <div id="empStockList" style="display:flex;flex-direction:column;gap:8px;"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- REEMBOLSOS (empleado) -->
+      <div class="page" id="page-reembolsos">
+        <div class="page-header">
+          <div class="page-title">↩️ Registrar Reembolso</div>
+        </div>
+        <div style="max-width:520px;">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;">
+            <div class="fg">
+              <label>Producto</label>
+              <select id="refProduct"><option value="">-- Selecciona --</option></select>
+            </div>
+            <div class="fg"><label>Cantidad</label><input type="number" id="refQty" min="1" value="1" /></div>
+            <div class="fg"><label>Motivo</label><input type="text" id="refReason" placeholder="Producto dañado, error de envío..." /></div>
+            <div class="fg"><label>Monto a reembolsar ($)</label><input type="number" id="refAmount" step="0.01" placeholder="0.00" /></div>
+            <button class="btn btn-warn" style="width:100%;justify-content:center;" onclick="confirmRefund()">
+              ↩️ Registrar reembolso
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MIS VENTAS (empleado) -->
+      <div class="page" id="page-mis-ventas">
+        <div class="page-header">
+          <div class="page-title">📋 Mis Transacciones</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Fecha</th><th>Productos</th><th>Total</th><th>Tipo</th><th>Nota</th></tr>
+            </thead>
+            <tbody id="mySalesBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /.main -->
+  </div><!-- /.layout -->
+</div><!-- /#app -->
+
+<!-- ==================== MODAL PRODUCTO ==================== -->
+<div class="modal-bg" id="productModal">
+  <div class="modal">
+    <h3 id="productModalTitle">Agregar Producto</h3>
+    <div class="fg"><label>Nombre del producto</label><input type="text" id="pName" placeholder="Ej: Camiseta talla M" /></div>
+    <div class="fg"><label>Categoría</label><input type="text" id="pCat" placeholder="Ropa, Electrónica..." /></div>
+    <div class="form-row">
+      <div class="fg"><label>Precio costo ($)</label><input type="number" id="pCost" step="0.01" oninput="calcGain()" placeholder="0.00" /></div>
+      <div class="fg"><label>Precio mayorista ($)</label><input type="number" id="pWholesale" step="0.01" placeholder="0.00" /></div>
+    </div>
+    <div class="fg"><label>Stock total (inventario general)</label><input type="number" id="pStock" min="0" placeholder="0" /></div>
+    <div class="fg"><label>Stock mínimo (alerta)</label><input type="number" id="pMinStock" value="5" /></div>
+    <div style="background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.15);border-radius:10px;padding:13px 15px;margin-bottom:4px;">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Nota</div>
+      <div style="font-size:12px;color:var(--muted);">
+        El precio de venta se asigna individualmente a cada empleado en
+        <strong style="color:var(--text)">Asignar Stock y Precios</strong>.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('productModal')" style="color:var(--muted)">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveProduct()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL EMPLEADO ==================== -->
+<div class="modal-bg" id="empModal">
+  <div class="modal">
+    <h3>Agregar Empleado</h3>
+    <div class="fg"><label>Nombre completo</label><input type="text" id="eName" /></div>
+    <div class="fg"><label>Usuario (login)</label><input type="text" id="eUser" /></div>
+    <div class="fg"><label>Contraseña</label><input type="password" id="ePass" /></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('empModal')" style="color:var(--muted)">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEmployee()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
