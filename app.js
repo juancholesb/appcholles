@@ -1,8 +1,6 @@
 // ===================== SERVER API =====================
-// Use relative API path (works both local and deployed)
 const API_URL = '/api';
 
-// Generic fetch helpers
 async function apiGet(endpoint) {
   const res = await fetch(API_URL + endpoint);
   return await res.json();
@@ -30,105 +28,19 @@ async function apiDelete(endpoint) {
   await fetch(API_URL + endpoint, { method: 'DELETE' });
 }
 
-// Employee API
-async function getAllEmployees() {
-  return await apiGet('/employees');
-}
-
-async function getEmployeeByUser(username) {
-  return await apiGet(`/employees/user/${username}`);
-}
-
-async function saveEmployeeDB(emp) {
-  if (emp.id) return await apiPut(`/employees/${emp.id}`, emp);
-  else return await apiPost('/employees', emp);
-}
-
-async function deleteEmployeeDB(id) {
-  return await apiDelete(`/employees/${id}`);
-}
-
-// Product API
-async function getAllProducts() {
-  return await apiGet('/products');
-}
-
-async function saveProductDB(prod) {
-  if (prod.id) return await apiPut(`/products/${prod.id}`, prod);
-  else return await apiPost('/products', prod);
-}
-
-async function deleteProductDB(id) {
-  return await apiDelete(`/products/${id}`);
-}
-
-// Sales API
-async function getAllSalesAPI() {
-  return await apiGet('/sales');
-}
-
-async function saveSaleDB(sale) {
-  return await apiPost('/sales', sale);
-}
-
-// Assignment API
-async function getAllAssignments() {
-  return await apiGet('/assignments');
-}
-
-async function saveAssignmentDB(assign) {
-  return await apiPost('/assignments', assign);
-}
-
-async function deleteAssignmentDB(empId, productId) {
-  return await apiDelete(`/assignments/${empId}/${productId}`);
-}
-
-async function getNextIds() {
-  return await apiGet('/nextids');
-}
-
-// ===================== STATE =====================
-
-async function deleteEmployeeDB(id) {
-  return await dbDelete('employees', id);
-}
-
-// Product Operations
-async function saveProduct(prod) {
-  if (prod.id) return await dbPut('products', prod);
-  else return await dbAdd('products', prod);
-}
-
-async function getAllProducts() {
-  return await dbGetAll('products');
-}
-
-async function deleteProductDB(id) {
-  return await dbDelete('products', id);
-}
-
-// Sales API
-async function getAllSalesAPI() {
-  return await apiGet('/sales');
-}
-
-async function saveSaleDB(sale) {
-  return await saveSaleDB(sale);
-}
-
-// Assignment API
-async function saveAssignmentDB(assign) {
-  return await dbPut('assignments', assign);
-}
-
-async function getAllAssignments() {
-  return await dbGetAll('assignments');
-}
-
-async function deleteAssignmentDB(empId, productId) {
-  return await dbDelete('assignments', [empId, productId]);
-}
+async function getAllEmployees()          { return await apiGet('/employees'); }
+async function getEmployeeByUser(u)      { return await apiGet(`/employees/user/${u}`); }
+async function saveEmployeeDB(emp)       { return emp.id ? await apiPut(`/employees/${emp.id}`, emp) : await apiPost('/employees', emp); }
+async function deleteEmployeeDB(id)      { return await apiDelete(`/employees/${id}`); }
+async function getAllProducts()           { return await apiGet('/products'); }
+async function saveProductDB(prod)       { return prod.id ? await apiPut(`/products/${prod.id}`, prod) : await apiPost('/products', prod); }
+async function deleteProductDB(id)       { return await apiDelete(`/products/${id}`); }
+async function getAllSalesAPI()           { return await apiGet('/sales'); }
+async function saveSaleDB(sale)          { return await apiPost('/sales', sale); }
+async function getAllAssignments()        { return await apiGet('/assignments'); }
+async function saveAssignmentDB(assign)  { return await apiPost('/assignments', assign); }
+async function deleteAssignmentDB(e, p)  { return await apiDelete(`/assignments/${e}/${p}`); }
+async function getNextIds()              { return await apiGet('/nextids'); }
 
 // ===================== STATE =====================
 const state = {
@@ -136,29 +48,11 @@ const state = {
   currentUser: null,
   editingProductId: null,
   cart: [],
-  products: [
-    {id:1,name:'Camiseta básica',cat:'Ropa',cost:8,wholesale:12,stock:200,minStock:10},
-    {id:2,name:'Pantalón casual',cat:'Ropa',cost:15,wholesale:22,stock:100,minStock:5},
-    {id:3,name:'Audífonos Bluetooth',cat:'Electrónica',cost:25,wholesale:38,stock:50,minStock:5},
-    {id:4,name:'Perfume 100ml',cat:'Belleza',cost:12,wholesale:18,stock:80,minStock:10},
-    {id:5,name:'Mochila urbana',cat:'Accesorios',cost:20,wholesale:30,stock:60,minStock:4},
-  ],
-  // { empId -> { productId -> { stock, sellPrice } } }
-  assignments: {
-    1: {
-      1: {stock:30, sellPrice:20},
-      3: {stock:8,  sellPrice:60},
-    }
-  },
-  sales: [
-    {id:1,date:'20/04/2025 10:30',emp:'Administrador',empId:0,items:[{name:'Camiseta básica',qty:2,price:20,pid:1}],total:40,type:'venta',note:''},
-    {id:2,date:'21/04/2025 14:00',emp:'Juan Pérez',empId:1,items:[{name:'Audífonos Bluetooth',qty:1,price:60,pid:3}],total:60,type:'venta',note:'Cliente VIP'},
-    {id:3,date:'22/04/2025 09:15',emp:'Juan Pérez',empId:1,items:[{name:'Perfume 100ml',qty:1,price:30,pid:4}],total:30,type:'reembolso',note:'Producto dañado'},
-  ],
-  employees: [
-    {id:1, name:'Juan Pérez', user:'empleado', pass:'emp123'},
-  ],
-  pid: 6, sid: 4, eid: 2,
+  products: [],
+  assignments: {},
+  sales: [],
+  employees: [],
+  pid: 1, sid: 1, eid: 1,
 };
 
 // ===================== AUTH =====================
@@ -169,17 +63,24 @@ function setRole(r) {
   document.getElementById('loginBtn').className = 'btn-login ' + r;
 }
 
-function doLogin() {
+async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
-  if (state.role === 'admin' && u === 'admin' && p === 'admin123') {
-    state.currentUser = {name:'Administrador', role:'admin', user:'admin', empId:0};
-    startApp();
+
+  if (state.role === 'admin') {
+    const adminEmp = state.employees.find(e => e.user === u && e.pass === p && e.role === 'admin');
+    if (adminEmp) {
+      state.currentUser = { name: adminEmp.name, role: 'admin', user: u, empId: adminEmp.id };
+      startApp();
+      return;
+    }
+    toast('Usuario o contraseña incorrectos', 'error');
     return;
   }
-  const emp = state.employees.find(e => e.user === u && e.pass === p);
+
+  const emp = state.employees.find(e => e.user === u && e.pass === p && e.role !== 'admin');
   if (state.role === 'empleado' && emp) {
-    state.currentUser = {name:emp.name, role:'empleado', user:u, empId:emp.id};
+    state.currentUser = { name: emp.name, role: 'empleado', user: u, empId: emp.id };
     startApp();
     return;
   }
@@ -252,14 +153,14 @@ function navigate(pid) {
   const btn = document.querySelector(`[data-page="${pid}"]`);
   if (btn) btn.classList.add('active');
   const handlers = {
-    dashboard:    renderDashboard,
-    inventario:   renderInventory,
-    asignar:      renderAssignPage,
-    ventas:       renderSales,
-    empleados:    renderEmployees,
+    dashboard:     renderDashboard,
+    inventario:    renderInventory,
+    asignar:       renderAssignPage,
+    ventas:        renderSales,
+    empleados:     renderEmployees,
     'nueva-venta': initNewSale,
-    reembolsos:   initRefund,
-    'mis-ventas': renderMySales,
+    reembolsos:    initRefund,
+    'mis-ventas':  renderMySales,
   };
   if (handlers[pid]) try { handlers[pid](); } catch(e) { console.error(e); }
 }
@@ -296,7 +197,7 @@ function renderDashboard() {
 function renderInventory() {
   const q = (document.getElementById('invSearch')?.value || '').toLowerCase();
   const f = state.products.filter(p =>
-    p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q)
+    p.name.toLowerCase().includes(q) || (p.cat||'').toLowerCase().includes(q)
   );
   document.getElementById('inventoryBody').innerHTML = f.length
     ? f.map(p => {
@@ -338,7 +239,7 @@ function openProductModal(id = null) {
 
 function calcGain() {}
 
-function saveProduct() {
+async function saveProduct() {
   const name      = document.getElementById('pName').value.trim();
   const cat       = document.getElementById('pCat').value.trim();
   const cost      = parseFloat(document.getElementById('pCost').value) || 0;
@@ -347,23 +248,24 @@ function saveProduct() {
   const minStock  = parseInt(document.getElementById('pMinStock').value) || 5;
   if (!name) { toast('El nombre es requerido', 'error'); return; }
   if (state.editingProductId) {
-    Object.assign(state.products.find(x => x.id === state.editingProductId), {name,cat,cost,wholesale,stock,minStock});
-    saveProductDB(state.products.find(x => x.id === state.editingProductId));
+    const prod = state.products.find(x => x.id === state.editingProductId);
+    Object.assign(prod, {name, cat, cost, wholesale, stock, minStock});
+    await saveProductDB(prod);
     toast('Producto actualizado', 'success');
   } else {
-    const newProd = {id: state.pid++, name, cat, cost, wholesale, stock, minStock};
-    state.products.push(newProd);
-    saveProductDB(newProd);
+    const newProd = {name, cat, cost, wholesale, stock, minStock};
+    const saved = await saveProductDB(newProd);
+    state.products.push({...newProd, id: saved.id});
     toast('Producto agregado', 'success');
   }
   closeModal('productModal');
   renderInventory();
 }
 
-function deleteProduct(id) {
+async function deleteProduct(id) {
   if (!confirm('¿Eliminar este producto?')) return;
   state.products = state.products.filter(p => p.id !== id);
-  deleteProductDB(id);
+  await deleteProductDB(id);
   Object.keys(state.assignments).forEach(eid => { delete state.assignments[eid][id]; });
   renderInventory();
   toast('Eliminado', 'success');
@@ -374,7 +276,7 @@ function renderAssignPage() {
   const sel    = document.getElementById('assignEmpSel');
   const curVal = sel.value;
   sel.innerHTML = '<option value="">-- Elige un empleado --</option>' +
-    state.employees.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    state.employees.filter(e => e.role !== 'admin').map(e => `<option value="${e.id}">${e.name}</option>`).join('');
   if (curVal) sel.value = curVal;
   renderAssignTable();
 }
@@ -425,25 +327,24 @@ function renderAssignTable() {
 
   html += `</tbody></table></div></div>
     <div style="margin-top:12px;font-size:12px;color:var(--muted);">
-      💡 Pon <strong>0</strong> en stock si no quieres que el empleado vea ese producto. El precio de venta que ingreses es el único que el empleado verá (no podrá cambiarlo).
+      💡 Pon <strong>0</strong> en stock si no quieres que el empleado vea ese producto.
     </div>`;
   wrap.innerHTML = html;
 }
 
-function saveAssignments(empId) {
+async function saveAssignments(empId) {
   if (!state.assignments[empId]) state.assignments[empId] = {};
   let errors = [];
-  state.products.forEach(p => {
+  for (const p of state.products) {
     const stockEl = document.getElementById(`asgn_stock_${empId}_${p.id}`);
     const priceEl = document.getElementById(`asgn_price_${empId}_${p.id}`);
     const stock     = parseInt(stockEl?.value) || 0;
     const sellPrice = parseFloat(priceEl?.value) || 0;
-    if (stock > p.stock) { errors.push(`${p.name}: stock insuficiente (máx ${p.stock})`); return; }
-    if (stock > 0 && sellPrice === 0) { errors.push(`${p.name}: debes poner un precio de venta`); return; }
+    if (stock > p.stock) { errors.push(`${p.name}: stock insuficiente (máx ${p.stock})`); continue; }
+    if (stock > 0 && sellPrice === 0) { errors.push(`${p.name}: debes poner un precio de venta`); continue; }
     state.assignments[empId][p.id] = {stock, sellPrice};
-    // Save to database
-    saveAssignmentDB({ empId: parseInt(empId), productId: p.id, stock, sellPrice });
-  });
+    await saveAssignmentDB({ empId: parseInt(empId), productId: p.id, stock, sellPrice });
+  }
   if (errors.length) { toast('⚠️ ' + errors[0], 'error'); return; }
   toast(`✅ Asignaciones guardadas para ${state.employees.find(e => e.id === empId)?.name}`, 'success');
   renderAssignTable();
@@ -473,11 +374,12 @@ function renderSales() {
 // ===================== EMPLOYEES =====================
 function renderEmployees() {
   const wrap = document.getElementById('empCards');
-  if (!state.employees.length) {
+  const emps = state.employees.filter(e => e.role !== 'admin');
+  if (!emps.length) {
     wrap.innerHTML = '<div class="empty-state"><div class="icon">👥</div><p>No hay empleados. Agrega uno.</p></div>';
     return;
   }
-  wrap.innerHTML = state.employees.map(e => {
+  wrap.innerHTML = emps.map(e => {
     const sv    = state.sales.filter(s => s.empId === e.id && s.type === 'venta');
     const total = sv.reduce((a, s) => a + s.total, 0);
     const asgn  = state.assignments[e.id] || {};
@@ -496,7 +398,7 @@ function renderEmployees() {
       </div>
       <table style="width:100%;border-collapse:collapse;">
         <thead><tr>
-          <th style="padding:8px 14px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:left;border-bottom:1px solid var(--border);">Producto asignado</th>
+          <th style="padding:8px 14px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:left;border-bottom:1px solid var(--border);">Producto</th>
           <th style="padding:8px 14px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:left;border-bottom:1px solid var(--border);">Stock</th>
           <th style="padding:8px 14px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:left;border-bottom:1px solid var(--border);">Precio venta</th>
           <th style="padding:8px 14px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:left;border-bottom:1px solid var(--border);">Ganancia/u</th>
@@ -514,7 +416,7 @@ function renderEmployees() {
                   <td style="padding:9px 14px;color:${gain>=0?'var(--success)':'var(--danger)'};font-weight:600;border-bottom:1px solid rgba(42,42,61,.4)">$${gain.toFixed(2)}</td>
                 </tr>`;
               }).join('')
-            : `<tr><td colspan="4" style="padding:16px 14px;font-size:13px;color:var(--muted)">Sin productos asignados — ve a <strong>Asignar a Empleados</strong></td></tr>`
+            : `<tr><td colspan="4" style="padding:16px 14px;font-size:13px;color:var(--muted)">Sin productos asignados</td></tr>`
           }
         </tbody>
       </table>
@@ -527,33 +429,31 @@ function openEmpModal() {
   document.getElementById('empModal').classList.add('open');
 }
 
-function saveEmployee() {
+async function saveEmployee() {
   const name = document.getElementById('eName').value.trim();
   const user = document.getElementById('eUser').value.trim();
   const pass = document.getElementById('ePass').value;
   if (!name || !user || !pass) { toast('Todos los campos son requeridos', 'error'); return; }
   if (state.employees.find(e => e.user === user)) { toast('Ese usuario ya existe', 'error'); return; }
-  const id = state.eid++;
-  const newEmp = {id, name, user, pass};
-  state.employees.push(newEmp);
-  state.assignments[id] = {};
-  // Save to database
-  saveEmployee({...newEmp, role: 'empleado', createdAt: new Date().toISOString()});
+  const newEmp = { name, user, pass, role: 'empleado' };
+  const saved = await saveEmployeeDB(newEmp);
+  state.employees.push({ ...newEmp, id: saved.id });
+  state.assignments[saved.id] = {};
   toast('Empleado registrado', 'success');
   closeModal('empModal');
   renderEmployees();
 }
 
-function deleteEmployee(id) {
+async function deleteEmployee(id) {
   if (!confirm('¿Eliminar empleado?')) return;
   state.employees = state.employees.filter(e => e.id !== id);
   delete state.assignments[id];
-  deleteEmployeeDB(id);
+  await deleteEmployeeDB(id);
   renderEmployees();
   toast('Eliminado', 'success');
 }
 
-// ===================== NEW SALE (employee) =====================
+// ===================== NEW SALE =====================
 function getMyAssignments() {
   const empId = state.currentUser.empId;
   const asgn  = state.assignments[empId] || {};
@@ -664,25 +564,25 @@ function renderCart() {
   if (totEl) totEl.textContent = `Total: $${tot.toFixed(2)}`;
 }
 
-function confirmSale() {
+async function confirmSale() {
   if (!state.cart.length) { toast('Agrega productos al carrito', 'error'); return; }
   const noteEl = document.getElementById('pvNote');
   const note   = noteEl ? noteEl.value : '';
   const total  = state.cart.reduce((a, c) => a + c.qty * c.price, 0);
   const empId  = state.currentUser.empId;
-  state.cart.forEach(c => {
+  for (const c of state.cart) {
     if (state.assignments[empId] && state.assignments[empId][c.id]) {
       state.assignments[empId][c.id].stock -= c.qty;
-      saveAssignmentDB({ empId: parseInt(empId), productId: c.id, stock: state.assignments[empId][c.id].stock, sellPrice: state.assignments[empId][c.id].sellPrice });
+      await saveAssignmentDB({ empId: parseInt(empId), productId: c.id, stock: state.assignments[empId][c.id].stock, sellPrice: state.assignments[empId][c.id].sellPrice });
     }
-  });
+  }
   const newSale = {
-    id: state.sid++, date: now(), emp: state.currentUser.name, empId,
+    date: now(), emp: state.currentUser.name, empId,
     items: state.cart.map(c => ({name:c.name, qty:c.qty, price:c.price, pid:c.id})),
     total, type:'venta', note,
   };
-  state.sales.push(newSale);
-  saveSaleDB(newSale);
+  const saved = await saveSaleDB(newSale);
+  state.sales.push({...newSale, id: saved.id});
   toast(`✅ Venta registrada: $${total.toFixed(2)}`, 'success');
   state.cart = [];
   initNewSale();
@@ -699,7 +599,7 @@ function initRefund() {
     myProducts.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 }
 
-function confirmRefund() {
+async function confirmRefund() {
   const rp = document.getElementById('refProduct');
   if (!rp) return;
   const id     = parseInt(rp.value);
@@ -712,15 +612,15 @@ function confirmRefund() {
   const empId = state.currentUser.empId;
   if (state.assignments[empId] && state.assignments[empId][id]) {
     state.assignments[empId][id].stock += qty;
-    saveAssignmentDB({ empId: parseInt(empId), productId: id, stock: state.assignments[empId][id].stock, sellPrice: state.assignments[empId][id].sellPrice });
+    await saveAssignmentDB({ empId: parseInt(empId), productId: id, stock: state.assignments[empId][id].stock, sellPrice: state.assignments[empId][id].sellPrice });
   }
   const newRefund = {
-    id: state.sid++, date: now(), emp: state.currentUser.name, empId,
+    date: now(), emp: state.currentUser.name, empId,
     items: [{name: p ? p.name : 'Producto', qty, price: amount, pid: id}],
     total: amount, type:'reembolso', note: reason,
   };
-  state.sales.push(newRefund);
-  saveSaleDB(newRefund);
+  const saved = await saveSaleDB(newRefund);
+  state.sales.push({...newRefund, id: saved.id});
   toast('Reembolso registrado', 'success');
   rp.value = '';
   document.getElementById('refQty').value    = 1;
@@ -764,7 +664,6 @@ function toast(msg, type = 'success') {
   setTimeout(() => el.remove(), 3500);
 }
 
-// Close modals clicking backdrop
 document.querySelectorAll('.modal-bg').forEach(bg =>
   bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); })
 );
@@ -772,7 +671,6 @@ document.querySelectorAll('.modal-bg').forEach(bg =>
 // ===================== APP INITIALIZATION =====================
 async function initApp() {
   try {
-    // Load state from server
     const [employees, products, sales, assignments, nextIds] = await Promise.all([
       getAllEmployees(),
       getAllProducts(),
@@ -782,14 +680,19 @@ async function initApp() {
     ]);
 
     state.employees = employees.map(e => ({
-      id: e.id, name: e.name, user: e.user, pass: e.pass
+      id: e.id, name: e.name, user: e.user, pass: e.pass, role: e.role || 'empleado'
     }));
 
     state.products = products.map(p => ({
-      id: p.id, name: p.name, cat: p.cat, cost: p.cost, wholesale: p.wholesale, stock: p.stock, minStock: p.minStock
+      id: p.id, name: p.name, cat: p.cat, cost: p.cost,
+      wholesale: p.wholesale, stock: p.stock, minStock: p.minStock
     }));
 
-    state.sales = sales;
+    state.sales = sales.map(s => ({
+      ...s,
+      items: typeof s.items === 'string' ? JSON.parse(s.items) : s.items
+    }));
+
     state.assignments = {};
     for (const a of assignments) {
       if (!state.assignments[a.empId]) state.assignments[a.empId] = {};
@@ -800,12 +703,11 @@ async function initApp() {
     state.sid = nextIds.sid;
     state.eid = nextIds.eid;
 
-    console.log('✅ App initialized from server');
+    console.log('✅ App conectada al servidor');
   } catch (error) {
-    console.error('Error connecting to server:', error);
-    toast('⚠️ No se pudo conectar al servidor. Asegúrate de que esté corriendo.', 'error');
+    console.error('Error conectando al servidor:', error);
+    toast('⚠️ No se pudo conectar al servidor.', 'error');
   }
 }
 
-// Start app when page loads
 initApp();
