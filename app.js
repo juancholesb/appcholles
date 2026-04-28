@@ -56,35 +56,20 @@ const state = {
 };
 
 // ===================== AUTH =====================
-function setRole(r) {
-  state.role = r;
-  document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
-  document.querySelector('.role-tab.' + r).classList.add('active');
-  document.getElementById('loginBtn').className = 'btn-login ' + r;
-}
+function setRole(r) {}
 
 async function doLogin() {
-  const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value;
-
-  if (state.role === 'admin') {
-    const adminEmp = state.employees.find(e => e.user === u && e.pass === p && e.role === 'admin');
-    if (adminEmp) {
-      state.currentUser = { name: adminEmp.name, role: 'admin', user: u, empId: adminEmp.id };
-      startApp();
-      return;
-    }
-    toast('Usuario o contraseña incorrectos', 'error');
-    return;
-  }
-
-  const emp = state.employees.find(e => e.user === u && e.pass === p && e.role !== 'admin');
-  if (state.role === 'empleado' && emp) {
-    state.currentUser = { name: emp.name, role: 'empleado', user: u, empId: emp.id };
-    startApp();
-    return;
-  }
-  toast('Usuario o contraseña incorrectos', 'error');
+  const u = document.getElementById("loginUser").value.trim();
+  const p = document.getElementById("loginPass").value;
+  const found = state.employees.find(e => e.user === u && e.pass === p);
+  if (!found) { toast("Usuario o contraseña incorrectos", "error"); return; }
+  state.currentUser = {
+    name: found.name,
+    role: found.role === "admin" ? "admin" : "empleado",
+    user: u,
+    empId: found.id
+  };
+  startApp();
 }
 
 function startApp() {
