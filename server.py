@@ -8,11 +8,9 @@ import psycopg2.extras
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
 
-# Obtener la URL de Render (Variables de Entorno)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def get_db():
-    # Se agrega sslmode=require para que Supabase acepte la conexión desde Render
     conn = psycopg2.connect(DATABASE_URL, sslmode='require')
     return conn
 
@@ -20,7 +18,6 @@ def init_db():
     conn = get_db()
     cursor = conn.cursor()
 
-    # Tablas con sintaxis PostgreSQL
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS employees (
             id SERIAL PRIMARY KEY,
@@ -71,15 +68,10 @@ def init_db():
 
     conn.commit()
 
-    # Verificar si hay empleados, si no, insertar iniciales
     cursor.execute('SELECT COUNT(*) FROM employees')
     if cursor.fetchone()[0] == 0:
         cursor.execute('INSERT INTO employees (name, "user", pass, role) VALUES (%s, %s, %s, %s)',
-                       ('Juan Pérez', 'empleado', 'emp123', 'empleado'))
-        cursor.execute('INSERT INTO employees (name, "user", pass, role) VALUES (%s, %s, %s, %s)',
                        ('Admin', 'admin', 'admin2006', 'admin'))
-        
-        # Productos iniciales
         products = [
             ('Camiseta básica', 'Ropa', 8, 12, 200, 10, '[]'),
             ('Pantalón casual', 'Ropa', 15, 22, 100, 5, '[]'),
@@ -89,7 +81,6 @@ def init_db():
         ]
         for p in products:
             cursor.execute('INSERT INTO products (name, cat, cost, wholesale, stock, "minStock", variants) VALUES (%s, %s, %s, %s, %s, %s, %s)', p)
-        
         conn.commit()
         print('✅ Datos iniciales sembrados')
 
@@ -97,7 +88,7 @@ def init_db():
     conn.close()
     print('✅ Base de datos inicializada')
 
-# ===================== API ROUTES =====================
+# ===================== EMPLOYEES =====================
 
 @app.route('/api/employees', methods=['GET'])
 def get_employees():
@@ -138,6 +129,28 @@ def create_employee():
     conn.close()
     return jsonify({'id': new_id, **data})
 
+@app.route('/api/employees/<int:id>', methods=['PUT'])
+def update_employee(id):
+    data = request.json
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE employees SET name=%s, "user"=%s, pass=%s, role=%s WHERE id=%s',
+                   (data['name'], data['user'], data['pass'], data.get('role', 'empleado'), id))
+    conn.commit()
+    conn.close()
+    return jsonify(data)
+
+@app.route('/api/employees/<int:id>', methods=['DELETE'])
+def delete_employee(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM employees WHERE id=%s', (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+# ===================== PRODUCTS =====================
+
 @app.route('/api/products', methods=['GET'])
 def get_products():
     conn = get_db()
@@ -163,6 +176,39 @@ def create_product():
     conn.close()
     return jsonify({'id': new_id, **data})
 
+@app.route('/api/products/<int:id>', methods=['PUT'])
+def update_product(id):
+    data = request.json
+    variants = json.dumps(data.get('variants', []))
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE products SET name=%s, cat=%s, cost=%s, wholesale=%s, stock=%s, "minStock"=%s, variants=%s WHERE id=%s',
+                   (data['name'], data.get('cat', ''), data.get('cost', 0), data.get('wholesale', 0),
+                    data.get('stock', 0), data.get('minStock', 5), variants, id))
+    conn.commit()
+    conn.close()
+    return jsonify(data)
+
+@app.route('/api/products/<int:id>', methods=['DELETE'])
+def delete_product(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM products WHERE id=%s', (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+# ===================== SALES =====================
+
+@app.route('/api/sales', methods=['GET'])
+def get_sales():
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute('SELECT * FROM sales ORDER BY id DESC')
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify(rows)
+
 @app.route('/api/sales', methods=['POST'])
 def create_sale():
     data = request.json
@@ -175,6 +221,53 @@ def create_sale():
     conn.commit()
     conn.close()
     return jsonify({'id': new_id, **data})
+
+@app.route('/api/sales/all', methods=['DELETE'])
+def delete_all_sales():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM sales')
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+# ===================== ASSIGNMENTS =====================
+
+@app.route('/api/assignments', methods=['GET'])
+def get_assignments():
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute('SELECT * FROM assignments')
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify(rows)
+
+@app.route('/api/assignments', methods=['POST'])
+def save_assignment():
+    data = request.json
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO assignments ("empId", "productId", stock, "sellPrice")
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT ("empId", "productId") DO UPDATE SET stock=EXCLUDED.stock, "sellPrice"=EXCLUDED."sellPrice"
+        RETURNING id
+    ''', (data['empId'], data['productId'], data['stock'], data['sellPrice']))
+    new_id = cursor.fetchone()[0]
+    conn.commit()
+    conn.close()
+    return jsonify({'id': new_id, **data})
+
+@app.route('/api/assignments/<int:emp_id>/<int:prod_id>', methods=['DELETE'])
+def delete_assignment(emp_id, prod_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM assignments WHERE "empId"=%s AND "productId"=%s', (emp_id, prod_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+# ===================== NEXT IDS =====================
 
 @app.route('/api/nextids', methods=['GET'])
 def get_next_ids():
@@ -189,6 +282,8 @@ def get_next_ids():
     conn.close()
     return jsonify({'pid': max_prod + 1, 'sid': max_sale + 1, 'eid': max_emp + 1})
 
+# ===================== STATIC =====================
+
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
@@ -199,11 +294,9 @@ def static_files(path):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    # Inicializar DB antes de arrancar
     try:
         init_db()
     except Exception as e:
-        print(f"⚠️ Error inicializando DB (posiblemente ya existe): {e}")
-    
+        print(f"⚠️ Error inicializando DB: {e}")
     print(f'\n🚀 StockMaster corriendo en puerto {port}')
     app.run(host='0.0.0.0', port=port, debug=False)
