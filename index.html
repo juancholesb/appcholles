@@ -24,7 +24,6 @@
              onkeydown="if(event.key==='Enter')doLogin()" />
     </div>
     <button class="btn-login admin" id="loginBtn" onclick="doLogin()">Ingresar</button>
-
   </div>
 </div>
 
@@ -50,6 +49,10 @@
       <div class="page" id="page-dashboard">
         <div class="page-header">
           <div class="page-title">📊 Dashboard</div>
+          <button class="btn btn-danger btn-sm" onclick="deleteAllSales()"
+            style="display:flex;align-items:center;gap:6px;">
+            🗑️ Borrar historial
+          </button>
         </div>
         <div class="stats-grid" id="stats"></div>
         <h3 style="font-size:13px;margin-bottom:14px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
@@ -58,7 +61,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Fecha</th><th>Empleado</th><th>Productos</th><th>Total</th><th>Tipo</th></tr>
+              <tr><th>Fecha</th><th>Empleado</th><th>Productos</th><th>Total</th><th>Ganancia</th><th>Tipo</th></tr>
             </thead>
             <tbody id="dashSales"></tbody>
           </table>
@@ -119,12 +122,16 @@
             <div class="search-bar">
               <input type="text" id="salesSearch" placeholder="Buscar..." oninput="renderSales()" />
             </div>
+            <button class="btn btn-danger btn-sm" onclick="deleteAllSales()"
+              style="display:flex;align-items:center;gap:6px;">
+              🗑️ Borrar historial
+            </button>
           </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>#</th><th>Fecha</th><th>Empleado</th><th>Productos</th><th>Total</th><th>Tipo</th><th>Nota</th></tr>
+              <tr><th>#</th><th>Fecha</th><th>Empleado</th><th>Productos</th><th>Total</th><th>Ganancia</th><th>Tipo</th><th>Nota</th></tr>
             </thead>
             <tbody id="salesBody"></tbody>
           </table>
@@ -160,11 +167,15 @@
               <div class="form-row">
                 <div class="fg"><label>Cantidad</label><input type="number" id="pvQty" min="1" value="1" /></div>
                 <div class="fg">
-                  <label>Precio unitario ($)</label>
-                  <input type="number" id="pvPrice" step="0.01" placeholder="0.00" />
+                  <label>Precio unitario (COP)</label>
+                  <input type="number" id="pvPrice" step="1" placeholder="0" />
                 </div>
               </div>
-              <div id="pvStockInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+              <div id="pvStockInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.8;"></div>
+              <div id="pvVariantWrap" style="display:none;" class="fg">
+                <label>Variante</label>
+                <select id="pvVariant"></select>
+              </div>
               <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="addToCart()">
                 + Agregar al carrito
               </button>
@@ -173,7 +184,7 @@
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;">
               <h4 style="margin-bottom:14px;font-size:15px;">🛒 Carrito</h4>
               <div id="cartItems"></div>
-              <div class="cart-total" id="cartTotal">Total: $0.00</div>
+              <div class="cart-total" id="cartTotal">Total: $0</div>
               <div class="fg" style="margin-top:14px;">
                 <label>Nota</label>
                 <input type="text" id="pvNote" placeholder="Cliente, pedido, etc." />
@@ -208,7 +219,7 @@
             </div>
             <div class="fg"><label>Cantidad</label><input type="number" id="refQty" min="1" value="1" /></div>
             <div class="fg"><label>Motivo</label><input type="text" id="refReason" placeholder="Producto dañado, error de envío..." /></div>
-            <div class="fg"><label>Monto a reembolsar ($)</label><input type="number" id="refAmount" step="0.01" placeholder="0.00" /></div>
+            <div class="fg"><label>Monto a reembolsar (COP)</label><input type="number" id="refAmount" step="1" placeholder="0" /></div>
             <button class="btn btn-warn" style="width:100%;justify-content:center;" onclick="confirmRefund()">
               ↩️ Registrar reembolso
             </button>
@@ -224,7 +235,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>#</th><th>Fecha</th><th>Productos</th><th>Total</th><th>Tipo</th><th>Nota</th></tr>
+              <tr><th>#</th><th>Fecha</th><th>Productos</th><th>Total</th><th>Ganancia</th><th>Tipo</th><th>Nota</th></tr>
             </thead>
             <tbody id="mySalesBody"></tbody>
           </table>
@@ -242,8 +253,8 @@
     <div class="fg"><label>Nombre del producto</label><input type="text" id="pName" placeholder="Ej: Camiseta talla M" /></div>
     <div class="fg"><label>Categoría</label><input type="text" id="pCat" placeholder="Ropa, Electrónica..." /></div>
     <div class="form-row">
-      <div class="fg"><label>Precio costo ($)</label><input type="number" id="pCost" step="0.01" oninput="calcGain()" placeholder="0.00" /></div>
-      <div class="fg"><label>Precio mayorista ($)</label><input type="number" id="pWholesale" step="0.01" placeholder="0.00" /></div>
+      <div class="fg"><label>Precio costo (COP)</label><input type="number" id="pCost" step="1" oninput="calcGain()" placeholder="0" /></div>
+      <div class="fg"><label>Precio mayorista (COP)</label><input type="number" id="pWholesale" step="1" placeholder="0" /></div>
     </div>
     <div class="fg"><label>Stock total (inventario general)</label><input type="number" id="pStock" min="0" placeholder="0" /></div>
     <div class="fg"><label>Stock mínimo (alerta)</label><input type="number" id="pMinStock" value="5" /></div>
@@ -271,6 +282,21 @@
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('empModal')" style="color:var(--muted)">Cancelar</button>
       <button class="btn btn-primary" onclick="saveEmployee()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL CONFIRMAR BORRAR ==================== -->
+<div class="modal-bg" id="deleteModal">
+  <div class="modal" style="max-width:400px;text-align:center;">
+    <div style="font-size:48px;margin-bottom:12px;">⚠️</div>
+    <h3 style="margin-bottom:8px;">¿Borrar todo el historial?</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:24px;">
+      Esta acción eliminará <strong>todas las ventas y reembolsos</strong> registrados. No se puede deshacer.
+    </p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="btn" onclick="closeModal('deleteModal')" style="color:var(--muted);min-width:100px;">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDeleteAll()" style="min-width:100px;">Sí, borrar todo</button>
     </div>
   </div>
 </div>
