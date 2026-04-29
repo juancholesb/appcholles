@@ -151,8 +151,8 @@ function renderDashboard(){
   const tr=refunds.reduce((a,s)=>a+s.total,0);
   const low=state.products.filter(p=>p.stock<=p.minStock).length;
   document.getElementById('stats').innerHTML=`
-    <div class="stat-card purple"><div class="stat-label">Ventas totales</div><div class="stat-val">$${tv.toFixed(2)}</div></div>
-    <div class="stat-card red"><div class="stat-label">Reembolsos</div><div class="stat-val">$${tr.toFixed(2)}</div></div>
+    <div class="stat-card purple"><div class="stat-label">Ventas totales</div><div class="stat-val">${cop(tv)}</div></div>
+    <div class="stat-card red"><div class="stat-label">Reembolsos</div><div class="stat-val">${cop(tr)}</div></div>
     <div class="stat-card orange"><div class="stat-label">Stock bajo</div><div class="stat-val">${low}</div></div>
     <div class="stat-card green"><div class="stat-label">Productos</div><div class="stat-val">${state.products.length}</div></div>`;
   document.getElementById('dashSales').innerHTML=
@@ -160,7 +160,7 @@ function renderDashboard(){
       <td style="font-size:12px;color:var(--muted)">${s.date}</td><td>${s.emp}</td>
       <td style="font-size:12px">${s.items.map(i=>i.name+(i.variant?` (${i.variant})`:'')+' ×'+i.qty).join(', ')}</td>
       <td style="font-family:'Syne',sans-serif;font-weight:700;color:${s.type==='venta'?'var(--success)':'var(--danger)'}">
-        ${s.type==='reembolso'?'-':''}$${s.total.toFixed(2)}</td>
+        ${s.type==='reembolso'?'-':''}${cop(s.total)}</td>
       <td><span class="badge ${s.type==='venta'?'badge-venta':'badge-refund'}">${s.type}</span></td>
     </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--muted)">Sin registros</td></tr>';
 }
@@ -332,17 +332,24 @@ function renderSales(){
   const q=(document.getElementById('salesSearch')?.value||'').toLowerCase();
   const f=state.sales.filter(s=>s.emp.toLowerCase().includes(q)||s.items.some(i=>i.name.toLowerCase().includes(q)));
   document.getElementById('salesBody').innerHTML=
-    f.map(s=>`<tr>
-      <td style="color:var(--muted)">#${s.id}</td>
-      <td style="font-size:12px;color:var(--muted)">${s.date}</td>
-      <td>${s.emp}</td>
-      <td style="font-size:12px">${s.items.map(i=>`${i.name}${i.variant?` (${i.variant})`:''} ×${i.qty} @ $${i.price}`).join('<br>')}</td>
-      <td style="font-family:'Syne',sans-serif;font-weight:700;color:${s.type==='venta'?'var(--success)':'var(--danger)'}">
-        ${s.type==='reembolso'?'-':''}$${s.total.toFixed(2)}</td>
-      <td><span class="badge ${s.type==='venta'?'badge-venta':'badge-refund'}">${s.type}</span></td>
-      <td style="font-size:12px;color:var(--muted)">${s.note||'—'}</td>
-    </tr>`).join('')||
-    '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Sin registros</td></tr>';
+    f.map(s=>{
+      const ganancia=s.items.reduce((a,i)=>{
+        const p=state.products.find(x=>x.id===i.pid);
+        return a+(i.price-(p?p.cost:0))*i.qty;
+      },0);
+      return `<tr>
+        <td style="color:var(--muted)">#${s.id}</td>
+        <td style="font-size:12px;color:var(--muted)">${s.date}</td>
+        <td>${s.emp}</td>
+        <td style="font-size:12px">${s.items.map(i=>`${i.name}${i.variant?` (${i.variant})`:''} ×${i.qty} @ ${cop(i.price)}`).join('<br>')}</td>
+        <td style="font-family:'Syne',sans-serif;font-weight:700;color:${s.type==='venta'?'var(--success)':'var(--danger)'}">
+          ${s.type==='reembolso'?'-':''}${cop(s.total)}</td>
+        <td style="color:var(--success);font-weight:600">${s.type==='venta'?cop(ganancia):'—'}</td>
+        <td><span class="badge ${s.type==='venta'?'badge-venta':'badge-refund'}">${s.type}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${s.note||'—'}</td>
+      </tr>`;
+    }).join('')||
+    '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">Sin registros</td></tr>';
 }
 
 async function deleteAllSales(){
@@ -476,8 +483,13 @@ function onPvProductChange(){
   const varWrap=document.getElementById('pvVariantWrap');
   const varSel=document.getElementById('pvVariant');
   if(a&&priceEl){
-    priceEl.value=a.sellPrice.toFixed(2);
-    if(infoEl)infoEl.innerHTML=`<span style="color:var(--muted)">Stock: <strong style="color:var(--text)">${a.stock} uds</strong></span>`;
+    priceEl.value=Math.round(a.sellPrice);
+    if(infoEl)infoEl.innerHTML=`
+      <span style="color:var(--muted)">Stock: <strong style="color:var(--text)">${a.stock} uds</strong></span>
+      &nbsp;·&nbsp;
+      <span style="color:var(--muted)">Precio sugerido: <strong style="color:var(--accent)">${cop(a.sellPrice)}</strong></span>
+      &nbsp;·&nbsp;
+      <span style="color:var(--muted)">Mínimo (mayorista): <strong style="color:var(--danger)">${cop(p.wholesale)}</strong></span>`;
     const variants=p?.variants||[];
     if(variants.length>0){
       varWrap.style.display='block';
@@ -503,6 +515,10 @@ function addToCart(){
   const a=asgn[pid];
   const p=state.products.find(x=>x.id===pid);
   if(!p||!a){toast('Selecciona un producto','error');return;}
+  if(price<p.wholesale){
+    toast(`❌ Precio mínimo: ${cop(p.wholesale)} (mayorista)`,'error');
+    return;
+  }
   const variants=p.variants||[];
   const varSel=document.getElementById('pvVariant');
   const variant=variants.length>0?(varSel?.value||''):'';
@@ -511,8 +527,8 @@ function addToCart(){
   const inCart=state.cart.find(c=>c.cartKey===cartKey);
   const usedQty=inCart?.qty||0;
   if(qty+usedQty>a.stock){toast(`Stock insuficiente. Disponible: ${a.stock-usedQty}`,'error');return;}
-  if(inCart){inCart.qty+=qty;}
-  else state.cart.push({cartKey,id:pid,name:p.name,variant,qty,price});
+  if(inCart){inCart.qty+=qty; inCart.price=price;}
+  else state.cart.push({cartKey,id:pid,name:p.name,variant,qty,price,cost:p.cost,wholesale:p.wholesale});
   renderCart();
   sel.value='';
   document.getElementById('pvQty').value=1;
@@ -531,19 +547,28 @@ function renderCart(){
   if(!el)return;
   if(!state.cart.length){
     el.innerHTML='<div class="empty-state"><div class="icon">🛒</div><p>Sin productos</p></div>';
-    if(totEl)totEl.textContent='Total: $0.00'; return;
+    if(totEl)totEl.textContent='Total: $0'; return;
   }
-  el.innerHTML=state.cart.map(c=>`
+  el.innerHTML=state.cart.map(c=>{
+    const subtotal=c.qty*c.price;
+    const ganancia=(c.price-c.cost)*c.qty;
+    const gainColor=ganancia>=0?'var(--success)':'var(--danger)';
+    return `
     <div class="cart-item">
-      <div><strong>${c.name}</strong>${c.variant?` <span style="font-size:11px;color:var(--accent)">(${c.variant})</span>`:''}<br>
-        <span style="color:var(--muted);font-size:12px">×${c.qty} @ $${c.price.toFixed(2)}</span></div>
+      <div style="flex:1">
+        <strong>${c.name}</strong>${c.variant?` <span style="font-size:11px;color:var(--accent)">(${c.variant})</span>`:''}<br>
+        <span style="color:var(--muted);font-size:12px">×${c.qty} @ ${cop(c.price)}</span><br>
+        <span style="font-size:11px;color:${gainColor}">Ganancia: ${cop(ganancia)}</span>
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-family:'Syne',sans-serif;font-weight:700">$${(c.qty*c.price).toFixed(2)}</span>
+        <span style="font-family:'Syne',sans-serif;font-weight:700">${cop(subtotal)}</span>
         <button class="btn btn-xs btn-danger" onclick="removeFromCart('${c.cartKey}')">✕</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const tot=state.cart.reduce((a,c)=>a+c.qty*c.price,0);
-  if(totEl)totEl.textContent=`Total: $${tot.toFixed(2)}`;
+  const gananciaTotal=state.cart.reduce((a,c)=>a+(c.price-c.cost)*c.qty,0);
+  if(totEl)totEl.innerHTML=`Total: <strong>${cop(tot)}</strong> &nbsp;·&nbsp; Ganancia: <strong style="color:var(--success)">${cop(gananciaTotal)}</strong>`;
 }
 
 async function confirmSale(){
@@ -608,18 +633,26 @@ function renderMySales(){
   const empId=state.currentUser.empId;
   const mine=state.sales.filter(s=>s.empId===empId);
   document.getElementById('mySalesBody').innerHTML=
-    mine.map(s=>`<tr>
-      <td style="color:var(--muted)">#${s.id}</td>
-      <td style="font-size:12px;color:var(--muted)">${s.date}</td>
-      <td style="font-size:12px">${s.items.map(i=>`${i.name}${i.variant?` (${i.variant})`:''} ×${i.qty} @ $${i.price}`).join('<br>')}</td>
-      <td style="font-family:'Syne',sans-serif;font-weight:700;color:${s.type==='venta'?'var(--success)':'var(--danger)'}">
-        ${s.type==='reembolso'?'-':''}$${s.total.toFixed(2)}</td>
-      <td><span class="badge ${s.type==='venta'?'badge-venta':'badge-refund'}">${s.type}</span></td>
-      <td style="font-size:12px;color:var(--muted)">${s.note||'—'}</td>
-    </tr>`).join('')||
-    '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Sin registros</td></tr>';
+    mine.map(s=>{
+      const ganancia=s.items.reduce((a,i)=>{
+        const p=state.products.find(x=>x.id===i.pid);
+        return a+(i.price-(p?p.cost:0))*i.qty;
+      },0);
+      return `<tr>
+        <td style="color:var(--muted)">#${s.id}</td>
+        <td style="font-size:12px;color:var(--muted)">${s.date}</td>
+        <td style="font-size:12px">${s.items.map(i=>`${i.name}${i.variant?` (${i.variant})`:''} ×${i.qty} @ ${cop(i.price)}`).join('<br>')}</td>
+        <td style="font-family:'Syne',sans-serif;font-weight:700;color:${s.type==='venta'?'var(--success)':'var(--danger)'}">
+          ${s.type==='reembolso'?'-':''}${cop(s.total)}</td>
+        <td style="color:var(--success);font-weight:600">${s.type==='venta'?cop(ganancia):'—'}</td>
+        <td><span class="badge ${s.type==='venta'?'badge-venta':'badge-refund'}">${s.type}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${s.note||'—'}</td>
+      </tr>`;
+    }).join('')||
+    '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Sin registros</td></tr>';
 }
 
+function cop(v){return new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',minimumFractionDigits:0,maximumFractionDigits:0}).format(v);}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function now(){const d=new Date();return d.toLocaleDateString('es-CO')+' '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});}
 function toast(msg,type='success'){
