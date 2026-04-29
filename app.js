@@ -1,9 +1,34 @@
 const API_URL = '/api';
 
-async function apiGet(e){const r=await fetch(API_URL+e);return await r.json();}
-async function apiPost(e,d){const r=await fetch(API_URL+e,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});return await r.json();}
-async function apiPut(e,d){const r=await fetch(API_URL+e,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});return await r.json();}
-async function apiDelete(e){await fetch(API_URL+e,{method:'DELETE'});}
+// ===================== TOKEN =====================
+
+function getToken() { return localStorage.getItem('sm_token') || ''; }
+function setToken(t) { localStorage.setItem('sm_token', t); }
+function clearToken() { localStorage.removeItem('sm_token'); }
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() };
+}
+
+async function apiGet(e) {
+  const r = await fetch(API_URL + e, { headers: authHeaders() });
+  if (r.status === 401) { logout(); return null; }
+  return await r.json();
+}
+async function apiPost(e, d) {
+  const r = await fetch(API_URL + e, { method: 'POST', headers: authHeaders(), body: JSON.stringify(d) });
+  if (r.status === 401) { logout(); return null; }
+  return await r.json();
+}
+async function apiPut(e, d) {
+  const r = await fetch(API_URL + e, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(d) });
+  if (r.status === 401) { logout(); return null; }
+  return await r.json();
+}
+async function apiDelete(e) {
+  const r = await fetch(API_URL + e, { method: 'DELETE', headers: authHeaders() });
+  if (r.status === 401) { logout(); return null; }
+}
 
 async function getAllEmployees(){return await apiGet('/employees');}
 async function saveEmployeeDB(e){return e.id?await apiPut(`/employees/${e.id}`,e):await apiPost('/employees',e);}
@@ -30,10 +55,44 @@ function setRole(r){}
 async function doLogin(){
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value;
-  const found=state.employees.find(e=>e.user===u&&e.pass===p);
-  if(!found){toast('Usuario o contraseña incorrectos','error');return;}
-  state.currentUser={name:found.name,role:found.role==='admin'?'admin':'empleado',user:u,empId:found.id};
-  startApp();
+  if(!u||!p){toast('Ingresa usuario y contraseña','error');return;}
+
+  try {
+    const res = await fetch(API_URL + '/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({user: u, pass: p})
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast(data.error || 'Usuario o contraseña incorrectos', 'error');
+      return;
+    }
+
+    setToken(data.token);
+    state.currentUser = {name: data.name, role: data.role === 'admin' ? 'admin' : 'empleado', user: data.user, empId: data.id};
+    await loadAppData();
+    startApp();
+  } catch(e) {
+    toast('Error conectando al servidor', 'error');
+  }
+}
+
+async function loadAppData() {
+  const [employees, products, sales, assignments, nextIds] = await Promise.all([
+    getAllEmployees(), getAllProducts(), getAllSalesAPI(), getAllAssignments(), getNextIds()
+  ]);
+  state.employees = (employees||[]).map(e=>({id:e.id,name:e.name,user:e.user,pass:e.pass,role:e.role||'empleado'}));
+  state.products = (products||[]).map(p=>({id:p.id,name:p.name,cat:p.cat,cost:p.cost,
+    wholesale:p.wholesale,stock:p.stock,minStock:p.minStock,variants:p.variants||[]}));
+  state.sales = (sales||[]).map(s=>({...s,items:typeof s.items==='string'?JSON.parse(s.items):s.items}));
+  state.assignments = {};
+  for(const a of (assignments||[])){
+    if(!state.assignments[a.empId])state.assignments[a.empId]={};
+    state.assignments[a.empId][a.productId]={stock:a.stock,sellPrice:a.sellPrice};
+  }
+  if(nextIds){state.pid=nextIds.pid;state.sid=nextIds.sid;state.eid=nextIds.eid;}
 }
 
 function startApp(){
@@ -48,6 +107,7 @@ function startApp(){
 }
 
 function logout(){
+  clearToken();
   state.currentUser=null; state.cart=[];
   document.getElementById('app').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
@@ -573,23 +633,14 @@ document.querySelectorAll('.modal-bg').forEach(bg=>
 );
 
 async function initApp(){
-  try{
-    const [employees,products,sales,assignments,nextIds]=await Promise.all([
-      getAllEmployees(),getAllProducts(),getAllSalesAPI(),getAllAssignments(),getNextIds()
-    ]);
-    state.employees=employees.map(e=>({id:e.id,name:e.name,user:e.user,pass:e.pass,role:e.role||'empleado'}));
-    state.products=products.map(p=>({id:p.id,name:p.name,cat:p.cat,cost:p.cost,
-      wholesale:p.wholesale,stock:p.stock,minStock:p.minStock,variants:p.variants||[]}));
-    state.sales=sales.map(s=>({...s,items:typeof s.items==='string'?JSON.parse(s.items):s.items}));
-    state.assignments={};
-    for(const a of assignments){
-      if(!state.assignments[a.empId])state.assignments[a.empId]={};
-      state.assignments[a.empId][a.productId]={stock:a.stock,sellPrice:a.sellPrice};
-    }
-    state.pid=nextIds.pid; state.sid=nextIds.sid; state.eid=nextIds.eid;
-    console.log('✅ App conectada');
-  }catch(error){
-    console.error(error); toast('⚠️ No se pudo conectar al servidor.','error');
+  // Si hay token guardado, intentar restaurar sesión
+  if(getToken()){
+    try {
+      await loadAppData();
+      // No podemos restaurar currentUser sin guardar en localStorage también
+      // así que simplemente limpiamos y pedimos login de nuevo
+      clearToken();
+    } catch(e) {}
   }
 }
 initApp();
