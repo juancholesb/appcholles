@@ -15,12 +15,10 @@ CORS(app)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'stockmaster_secret_2026')
 
-# Pool de conexiones (min 1, max 10)
 db_pool = pool.SimpleConnectionPool(1, 10, DATABASE_URL, sslmode='require')
 
 def get_db():
-    conn = db_pool.getconn()
-    return conn
+    return db_pool.getconn()
 
 def release_db(conn):
     db_pool.putconn(conn)
@@ -65,9 +63,16 @@ def init_db():
                 cat TEXT,
                 cost REAL DEFAULT 0,
                 wholesale REAL DEFAULT 0,
+                "minStock" INTEGER DEFAULT 5
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS variants (
+                id SERIAL PRIMARY KEY,
+                "productId" INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
                 stock INTEGER DEFAULT 0,
-                "minStock" INTEGER DEFAULT 5,
-                variants TEXT DEFAULT '[]'
+                UNIQUE("productId", name)
             )
         ''')
         cursor.execute('''
@@ -87,9 +92,18 @@ def init_db():
                 id SERIAL PRIMARY KEY,
                 "empId" INTEGER NOT NULL,
                 "productId" INTEGER NOT NULL,
-                stock INTEGER DEFAULT 0,
                 "sellPrice" REAL DEFAULT 0,
                 UNIQUE("empId", "productId")
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS assignment_variants (
+                id SERIAL PRIMARY KEY,
+                "empId" INTEGER NOT NULL,
+                "productId" INTEGER NOT NULL,
+                "variantId" INTEGER NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+                stock INTEGER DEFAULT 0,
+                UNIQUE("empId", "variantId")
             )
         ''')
         conn.commit()
@@ -99,15 +113,13 @@ def init_db():
             hashed = bcrypt.hashpw('admin2006'.encode(), bcrypt.gensalt()).decode()
             cursor.execute('INSERT INTO employees (name, "user", pass, role) VALUES (%s, %s, %s, %s)',
                            ('Admin', 'admin', hashed, 'admin'))
-            products = [
-                ('Camiseta básica', 'Ropa', 8, 12, 200, 10, '[]'),
-                ('Pantalón casual', 'Ropa', 15, 22, 100, 5, '[]'),
-                ('Audífonos Bluetooth', 'Electrónica', 25, 38, 50, 5, '[]'),
-                ('Perfume 100ml', 'Belleza', 12, 18, 80, 10, '[]'),
-                ('Mochila urbana', 'Accesorios', 20, 30, 60, 4, '[]'),
-            ]
-            for p in products:
-                cursor.execute('INSERT INTO products (name, cat, cost, wholesale, stock, "minStock", variants) VALUES (%s,%s,%s,%s,%s,%s,%s)', p)
+            # Producto ejemplo con variantes
+            cursor.execute('INSERT INTO products (name, cat, cost, wholesale, "minStock") VALUES (%s,%s,%s,%s,%s) RETURNING id',
+                           ('Jugo natural', 'Bebidas', 2000, 3000, 5))
+            prod_id = cursor.fetchone()[0]
+            for sabor, stock in [('Fresa', 10), ('Mango', 12), ('Maracuyá', 8)]:
+                cursor.execute('INSERT INTO variants ("productId", name, stock) VALUES (%s,%s,%s)',
+                               (prod_id, sabor, stock))
             conn.commit()
             print('✅ Datos iniciales sembrados')
 
@@ -151,7 +163,6 @@ def login():
     stored = emp['pass'].encode() if isinstance(emp['pass'], str) else emp['pass']
     password_bytes = password.encode()
 
-    # Soporte para contraseñas viejas en texto plano (migración automática a bcrypt)
     try:
         valid = bcrypt.checkpw(password_bytes, stored)
     except Exception:
@@ -199,36 +210,6 @@ def get_employees():
     try:
         cursor.execute('SELECT * FROM employees')
         return jsonify(cursor.fetchall())
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        cursor.close()
-        release_db(conn)
-
-@app.route('/api/employees/<int:id>', methods=['GET'])
-@token_required
-def get_employee(id):
-    conn = get_db()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    try:
-        cursor.execute('SELECT * FROM employees WHERE id = %s', (id,))
-        row = cursor.fetchone()
-        return jsonify(row if row else None)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        cursor.close()
-        release_db(conn)
-
-@app.route('/api/employees/user/<username>', methods=['GET'])
-@token_required
-def get_employee_by_user(username):
-    conn = get_db()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    try:
-        cursor.execute('SELECT * FROM employees WHERE "user" = %s', (username,))
-        row = cursor.fetchone()
-        return jsonify(row if row else None)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
@@ -294,17 +275,33 @@ def delete_employee(id):
 
 # ===================== PRODUCTS =====================
 
+def get_product_with_variants(cursor, product_id=None):
+    """Obtiene productos con sus variantes y stock total calculado."""
+    if product_id:
+        cursor.execute('SELECT * FROM products WHERE id = %s', (product_id,))
+    else:
+        cursor.execute('SELECT * FROM products ORDER BY id')
+    products = cursor.fetchall()
+
+    result = []
+    for p in products:
+        cursor.execute('SELECT * FROM variants WHERE "productId" = %s ORDER BY name', (p['id'],))
+        variants = cursor.fetchall()
+        total_stock = sum(v['stock'] for v in variants)
+        result.append({
+            **p,
+            'stock': total_stock,
+            'variants': [dict(v) for v in variants]
+        })
+    return result
+
 @app.route('/api/products', methods=['GET'])
 @token_required
 def get_products():
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        cursor.execute('SELECT * FROM products')
-        rows = cursor.fetchall()
-        for r in rows:
-            r['variants'] = json.loads(r.get('variants') or '[]')
-        return jsonify(rows)
+        return jsonify(get_product_with_variants(cursor))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
@@ -315,16 +312,24 @@ def get_products():
 @token_required
 def create_product():
     data = request.json
-    variants = json.dumps(data.get('variants', []))
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        cursor.execute('INSERT INTO products (name, cat, cost, wholesale, stock, "minStock", variants) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id',
-                       (data['name'], data.get('cat', ''), data.get('cost', 0), data.get('wholesale', 0),
-                        data.get('stock', 0), data.get('minStock', 5), variants))
-        new_id = cursor.fetchone()[0]
+        cursor.execute(
+            'INSERT INTO products (name, cat, cost, wholesale, "minStock") VALUES (%s,%s,%s,%s,%s) RETURNING id',
+            (data['name'], data.get('cat', ''), data.get('cost', 0),
+             data.get('wholesale', 0), data.get('minStock', 5))
+        )
+        new_id = cursor.fetchone()['id']
+
+        for v in data.get('variants', []):
+            cursor.execute(
+                'INSERT INTO variants ("productId", name, stock) VALUES (%s,%s,%s)',
+                (new_id, v['name'], v.get('stock', 0))
+            )
         conn.commit()
-        return jsonify({'id': new_id, **data})
+        result = get_product_with_variants(cursor, new_id)
+        return jsonify(result[0] if result else {'id': new_id})
     except Exception as e:
         conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -336,15 +341,36 @@ def create_product():
 @token_required
 def update_product(id):
     data = request.json
-    variants = json.dumps(data.get('variants', []))
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        cursor.execute('UPDATE products SET name=%s, cat=%s, cost=%s, wholesale=%s, stock=%s, "minStock"=%s, variants=%s WHERE id=%s',
-                       (data['name'], data.get('cat', ''), data.get('cost', 0), data.get('wholesale', 0),
-                        data.get('stock', 0), data.get('minStock', 5), variants, id))
+        cursor.execute(
+            'UPDATE products SET name=%s, cat=%s, cost=%s, wholesale=%s, "minStock"=%s WHERE id=%s',
+            (data['name'], data.get('cat', ''), data.get('cost', 0),
+             data.get('wholesale', 0), data.get('minStock', 5), id)
+        )
+        # Actualizar variantes: borrar las que no están, insertar/actualizar las nuevas
+        incoming = {v['name']: v for v in data.get('variants', [])}
+        cursor.execute('SELECT * FROM variants WHERE "productId"=%s', (id,))
+        existing = {v['name']: v for v in cursor.fetchall()}
+
+        # Borrar variantes eliminadas
+        for name in existing:
+            if name not in incoming:
+                cursor.execute('DELETE FROM variants WHERE "productId"=%s AND name=%s', (id, name))
+
+        # Insertar o actualizar
+        for name, v in incoming.items():
+            if name in existing:
+                cursor.execute('UPDATE variants SET stock=%s WHERE "productId"=%s AND name=%s',
+                               (v.get('stock', 0), id, name))
+            else:
+                cursor.execute('INSERT INTO variants ("productId", name, stock) VALUES (%s,%s,%s)',
+                               (id, name, v.get('stock', 0)))
+
         conn.commit()
-        return jsonify(data)
+        result = get_product_with_variants(cursor, id)
+        return jsonify(result[0] if result else data)
     except Exception as e:
         conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -359,6 +385,39 @@ def delete_product(id):
     cursor = conn.cursor()
     try:
         cursor.execute('DELETE FROM products WHERE id=%s', (id,))
+        conn.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        release_db(conn)
+
+# ===================== VARIANTS =====================
+
+@app.route('/api/variants', methods=['GET'])
+@token_required
+def get_all_variants():
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cursor.execute('SELECT * FROM variants ORDER BY "productId", name')
+        return jsonify(cursor.fetchall())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        release_db(conn)
+
+@app.route('/api/variants/<int:id>/stock', methods=['PUT'])
+@token_required
+def update_variant_stock(id):
+    data = request.json
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('UPDATE variants SET stock=%s WHERE id=%s', (data['stock'], id))
         conn.commit()
         return jsonify({'ok': True})
     except Exception as e:
@@ -389,12 +448,28 @@ def get_sales():
 def create_sale():
     data = request.json
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        cursor.execute('INSERT INTO sales (date, emp, "empId", items, total, type, note) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id',
-                       (data['date'], data['emp'], data['empId'], json.dumps(data['items']),
-                        data['total'], data['type'], data.get('note', '')))
-        new_id = cursor.fetchone()[0]
+        cursor.execute(
+            'INSERT INTO sales (date, emp, "empId", items, total, type, note) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id',
+            (data['date'], data['emp'], data['empId'], json.dumps(data['items']),
+             data['total'], data['type'], data.get('note', ''))
+        )
+        new_id = cursor.fetchone()['id']
+
+        # Bajar stock de variantes vendidas
+        for item in data['items']:
+            if item.get('variantId'):
+                cursor.execute(
+                    'UPDATE variants SET stock = stock - %s WHERE id = %s AND stock >= %s',
+                    (item['qty'], item['variantId'], item['qty'])
+                )
+                # Bajar también el stock asignado al empleado para esa variante
+                cursor.execute(
+                    'UPDATE assignment_variants SET stock = stock - %s WHERE "empId"=%s AND "variantId"=%s AND stock >= %s',
+                    (item['qty'], data['empId'], item['variantId'], item['qty'])
+                )
+
         conn.commit()
         return jsonify({'id': new_id, **data})
     except Exception as e:
@@ -429,7 +504,11 @@ def get_assignments():
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cursor.execute('SELECT * FROM assignments')
-        return jsonify(cursor.fetchall())
+        assignments = cursor.fetchall()
+        # Incluir variantes asignadas
+        cursor.execute('SELECT * FROM assignment_variants')
+        av = cursor.fetchall()
+        return jsonify({'assignments': assignments, 'assignmentVariants': av})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
@@ -441,15 +520,25 @@ def get_assignments():
 def save_assignment():
     data = request.json
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
+        # Guardar asignación principal (precio de venta)
         cursor.execute('''
-            INSERT INTO assignments ("empId", "productId", stock, "sellPrice")
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT ("empId", "productId") DO UPDATE SET stock=EXCLUDED.stock, "sellPrice"=EXCLUDED."sellPrice"
+            INSERT INTO assignments ("empId", "productId", "sellPrice")
+            VALUES (%s, %s, %s)
+            ON CONFLICT ("empId", "productId") DO UPDATE SET "sellPrice"=EXCLUDED."sellPrice"
             RETURNING id
-        ''', (data['empId'], data['productId'], data['stock'], data['sellPrice']))
-        new_id = cursor.fetchone()[0]
+        ''', (data['empId'], data['productId'], data['sellPrice']))
+        new_id = cursor.fetchone()['id']
+
+        # Guardar stock por variante
+        for v in data.get('variants', []):
+            cursor.execute('''
+                INSERT INTO assignment_variants ("empId", "productId", "variantId", stock)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT ("empId", "variantId") DO UPDATE SET stock=EXCLUDED.stock
+            ''', (data['empId'], data['productId'], v['variantId'], v['stock']))
+
         conn.commit()
         return jsonify({'id': new_id, **data})
     except Exception as e:
@@ -466,6 +555,7 @@ def delete_assignment(emp_id, prod_id):
     cursor = conn.cursor()
     try:
         cursor.execute('DELETE FROM assignments WHERE "empId"=%s AND "productId"=%s', (emp_id, prod_id))
+        cursor.execute('DELETE FROM assignment_variants WHERE "empId"=%s AND "productId"=%s', (emp_id, prod_id))
         conn.commit()
         return jsonify({'ok': True})
     except Exception as e:
@@ -506,11 +596,13 @@ def index():
 def static_files(path):
     return send_from_directory('.', path)
 
+# Inicializar DB al arrancar con gunicorn
+try:
+    init_db()
+except Exception as e:
+    print(f"⚠️ Error inicializando DB: {e}")
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    try:
-        init_db()
-    except Exception as e:
-        print(f"⚠️ Error inicializando DB: {e}")
     print(f'\n🚀 StockMaster corriendo en puerto {port}')
     app.run(host='0.0.0.0', port=port, debug=False)
