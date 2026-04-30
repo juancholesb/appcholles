@@ -80,14 +80,14 @@
           </div>
         </div>
         <div class="info-box">
-          ℹ️ Aquí defines los productos con su precio costo y precio mayorista.
-          Luego ve a <strong>Asignar a Empleados</strong> para darle stock y precio de venta a cada empleado.
+          ℹ️ Cada producto tiene variantes (sabores, tallas, colores) con su propio stock.
+          El stock total es la suma de todas las variantes.
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Producto</th><th>Categoría</th><th>Precio Costo</th>
+                <th>Producto / Variantes</th><th>Categoría</th><th>Precio Costo</th>
                 <th>P. Mayorista</th><th>Stock Total</th><th>Estado</th><th></th>
               </tr>
             </thead>
@@ -102,8 +102,8 @@
           <div class="page-title">🎯 Asignar Stock y Precios</div>
         </div>
         <div class="info-box">
-          Selecciona un empleado y asígnale qué productos puede vender,
-          cuántas unidades tiene disponibles y a qué precio debe venderlos.
+          Selecciona un empleado, asígnale un precio de venta por producto y
+          cuántas unidades de cada variante puede vender.
         </div>
         <div class="fg" style="max-width:300px;">
           <label>Seleccionar empleado</label>
@@ -161,8 +161,12 @@
               <div class="fg">
                 <label>Producto</label>
                 <select id="pvProduct" onchange="onPvProductChange()">
-                  <option value="">-- Selecciona --</option>
+                  <option value="">-- Selecciona producto --</option>
                 </select>
+              </div>
+              <div id="pvVariantWrap" style="display:none;" class="fg">
+                <label>Sabor / Variante</label>
+                <select id="pvVariant" onchange="onPvVariantChange()"></select>
               </div>
               <div class="form-row">
                 <div class="fg"><label>Cantidad</label><input type="number" id="pvQty" min="1" value="1" /></div>
@@ -171,11 +175,7 @@
                   <input type="number" id="pvPrice" step="1" placeholder="0" />
                 </div>
               </div>
-              <div id="pvStockInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.8;"></div>
-              <div id="pvVariantWrap" style="display:none;" class="fg">
-                <label>Variante</label>
-                <select id="pvVariant"></select>
-              </div>
+              <div id="pvStockInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:2;"></div>
               <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="addToCart()">
                 + Agregar al carrito
               </button>
@@ -199,7 +199,7 @@
           <div>
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;">
               <h4 style="margin-bottom:14px;font-size:15px;">📋 Mi inventario asignado</h4>
-              <div id="empStockList" style="display:flex;flex-direction:column;gap:8px;"></div>
+              <div id="empStockList" style="display:flex;flex-direction:column;gap:10px;"></div>
             </div>
           </div>
 
@@ -248,23 +248,33 @@
 
 <!-- ==================== MODAL PRODUCTO ==================== -->
 <div class="modal-bg" id="productModal">
-  <div class="modal">
+  <div class="modal" style="max-width:560px;">
     <h3 id="productModalTitle">Agregar Producto</h3>
-    <div class="fg"><label>Nombre del producto</label><input type="text" id="pName" placeholder="Ej: Camiseta talla M" /></div>
-    <div class="fg"><label>Categoría</label><input type="text" id="pCat" placeholder="Ropa, Electrónica..." /></div>
+    <div class="fg"><label>Nombre del producto</label><input type="text" id="pName" placeholder="Ej: Jugo natural" /></div>
+    <div class="fg"><label>Categoría</label><input type="text" id="pCat" placeholder="Bebidas, Ropa, Electrónica..." /></div>
     <div class="form-row">
       <div class="fg"><label>Precio costo (COP)</label><input type="number" id="pCost" step="1" oninput="calcGain()" placeholder="0" /></div>
       <div class="fg"><label>Precio mayorista (COP)</label><input type="number" id="pWholesale" step="1" placeholder="0" /></div>
     </div>
-    <div class="fg"><label>Stock total (inventario general)</label><input type="number" id="pStock" min="0" placeholder="0" /></div>
     <div class="fg"><label>Stock mínimo (alerta)</label><input type="number" id="pMinStock" value="5" /></div>
-    <div style="background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.15);border-radius:10px;padding:13px 15px;margin-bottom:4px;">
-      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Nota</div>
-      <div style="font-size:12px;color:var(--muted);">
-        El precio de venta se asigna individualmente a cada empleado en
-        <strong style="color:var(--text)">Asignar Stock y Precios</strong>.
+
+    <!-- Variantes -->
+    <div style="margin-top:8px;">
+      <label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:8px;">
+        Variantes (sabores, tallas, colores...)
+      </label>
+      <div id="variantTags" style="margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="variantInput" placeholder="Ej: Fresa, Talla M, Rojo..."
+          style="flex:1;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addVariant();}" />
+        <button class="btn btn-primary btn-sm" onclick="addVariant()">+ Agregar</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">
+        💡 El stock total del producto es la suma del stock de cada variante.
       </div>
     </div>
+
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('productModal')" style="color:var(--muted)">Cancelar</button>
       <button class="btn btn-primary" onclick="saveProduct()">Guardar</button>
