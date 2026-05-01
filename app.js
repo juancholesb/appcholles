@@ -51,7 +51,7 @@ const state = {
   assignments:{}, assignmentVariants:{},
   editingVariants:[],
   pid:1, sid:1, eid:1,
-  goals:{}, // empId_month -> goal
+  goals:{},
   clients:[],
   lastReceipt:null,
 };
@@ -80,8 +80,7 @@ async function doLogin(){
   const p=document.getElementById('loginPass').value;
   if(!u||!p){toast('Ingresa usuario y contraseña','error');return;}
   const btn=document.getElementById('loginBtn');
-  btn.classList.add('loading');
-  btn.disabled=true;
+  btn.classList.add('loading');btn.disabled=true;
   try{
     const res=await fetch(API_URL+'/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p})});
     const data=await res.json();
@@ -106,7 +105,6 @@ async function loadAppData(){
     variants:(p.variants||[])
   }));
   state.sales=(sales||[]).map(s=>({...s,items:typeof s.items==='string'?JSON.parse(s.items):s.items}));
-
   state.assignments={};
   state.assignmentVariants={};
   if(assignData){
@@ -119,12 +117,8 @@ async function loadAppData(){
       state.assignmentVariants[av.empId][av.variantId]={stock:av.stock,productId:av.productId};
     }
   }
-
   state.goals={};
-  for(const g of (goals||[])){
-    state.goals[`${g.empId}_${g.month}`]=g.goal;
-  }
-
+  for(const g of (goals||[])){state.goals[`${g.empId}_${g.month}`]=g.goal;}
   state.clients=clients||[];
   if(nextIds){state.pid=nextIds.pid;state.sid=nextIds.sid;state.eid=nextIds.eid;}
 }
@@ -188,14 +182,11 @@ function buildSidebar(){
 
   items.forEach(n=>{
     if(n.s){
-      const d=document.createElement('div');
-      d.className='nav-section';d.textContent=n.s;sb.appendChild(d);
-    } else {
-      const b=document.createElement('button');
-      b.className='nav-item';b.dataset.page=n.id;
+      const d=document.createElement('div');d.className='nav-section';d.textContent=n.s;sb.appendChild(d);
+    }else{
+      const b=document.createElement('button');b.className='nav-item';b.dataset.page=n.id;
       b.innerHTML=`<span class="nav-icon">${icons[n.i]||''}</span><span>${n.l}</span>`;
-      b.onclick=()=>{navigate(n.id);closeSidebar();};
-      sb.appendChild(b);
+      b.onclick=()=>{navigate(n.id);closeSidebar();};sb.appendChild(b);
     }
   });
 }
@@ -227,10 +218,7 @@ function navigate(pid){
 // ===================== STOCK ALERTS =====================
 function renderStockAlerts(){
   const el=document.getElementById('stockAlerts');if(!el)return;
-  const low=state.products.filter(p=>{
-    const v0=p.variants.filter(v=>v.stock===0);
-    return p.stock<=p.minStock||v0.length;
-  });
+  const low=state.products.filter(p=>p.stock<=p.minStock||p.variants.some(v=>v.stock===0));
   if(!low.length){el.innerHTML='';return;}
   el.innerHTML=`<div class="alert-pill" onclick="navigate('inventario')">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -245,134 +233,92 @@ function renderDashboard(){
   const tv=ventas.reduce((a,s)=>a+s.total,0);
   const tr=refunds.reduce((a,s)=>a+s.total,0);
   const low=state.products.filter(p=>p.stock<=p.minStock).length;
-  const gananciaTotal=state.sales.filter(s=>s.type==='venta').reduce((a,s)=>{
-    return a+s.items.reduce((b,i)=>{const p=state.products.find(x=>x.id===i.pid);return b+(i.price-(p?p.cost:0))*i.qty;},0);
-  },0);
+  const gananciaTotal=ventas.reduce((a,s)=>a+s.items.reduce((b,i)=>{const p=state.products.find(x=>x.id===i.pid);return b+(i.price-(p?p.cost:0))*i.qty;},0),0);
 
   document.getElementById('stats').innerHTML=`
     <div class="stat-card">
-      <div class="stat-icon stat-icon-blue">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-      </div>
-      <div class="stat-body">
-        <div class="stat-label">Ventas totales</div>
-        <div class="stat-val">${cop(tv)}</div>
-        <div class="stat-sub">${ventas.length} transacciones</div>
-      </div>
+      <div class="stat-icon stat-icon-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+      <div class="stat-body"><div class="stat-label">Ventas totales</div><div class="stat-val">${cop(tv)}</div><div class="stat-sub">${ventas.length} transacciones</div></div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon stat-icon-green">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-      </div>
-      <div class="stat-body">
-        <div class="stat-label">Ganancia neta</div>
-        <div class="stat-val">${cop(gananciaTotal)}</div>
-        <div class="stat-sub">Después de costos</div>
-      </div>
+      <div class="stat-icon stat-icon-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+      <div class="stat-body"><div class="stat-label">Ganancia neta</div><div class="stat-val">${cop(gananciaTotal)}</div><div class="stat-sub">Después de costos</div></div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon stat-icon-red">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
-      </div>
-      <div class="stat-body">
-        <div class="stat-label">Reembolsos</div>
-        <div class="stat-val">${cop(tr)}</div>
-        <div class="stat-sub">${refunds.length} reembolsos</div>
-      </div>
+      <div class="stat-icon stat-icon-red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></div>
+      <div class="stat-body"><div class="stat-label">Reembolsos</div><div class="stat-val">${cop(tr)}</div><div class="stat-sub">${refunds.length} reembolsos</div></div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon stat-icon-orange">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-      </div>
-      <div class="stat-body">
-        <div class="stat-label">Stock bajo</div>
-        <div class="stat-val">${low}</div>
-        <div class="stat-sub">productos críticos</div>
-      </div>
+      <div class="stat-icon stat-icon-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div>
+      <div class="stat-body"><div class="stat-label">Stock bajo</div><div class="stat-val">${low}</div><div class="stat-sub">productos críticos</div></div>
     </div>`;
 
   renderSalesChart('week');
   renderRanking();
 
   document.getElementById('dashSales').innerHTML=
-    state.sales.slice(0,8).map(s=>`
-      <tr>
-        <td style="font-size:12px;color:var(--muted)">${s.date}</td>
-        <td><strong>${s.emp}</strong></td>
-        <td style="font-weight:700;color:${s.type==='venta'?'var(--success)':'var(--danger)'}">
-          ${s.type==='reembolso'?'−':''}${cop(s.total)}</td>
-        <td><span class="badge ${s.type==='venta'?'badge-venta':'badge-refund'}">${s.type}</span></td>
-      </tr>`).join('')||
-    '<tr><td colspan="4" class="empty-td">Sin registros</td></tr>';
+    state.sales.slice(0,8).map(s=>`<tr>
+      <td style="font-size:12px;color:var(--muted)">${s.date}</td>
+      <td><strong>${s.emp}</strong></td>
+      <td style="font-weight:700;color:${s.type==='venta'?'var(--success)':'var(--danger)'}">
+        ${s.type==='reembolso'?'−':''}${cop(s.total)}</td>
+      <td><span class="badge ${s.type==='venta'?'badge-venta':'badge-refund'}">${s.type}</span></td>
+    </tr>`).join('')||'<tr><td colspan="4" class="empty-td">Sin registros</td></tr>';
 }
 
 function renderSalesChart(period){
   const days=period==='week'?7:30;
   const now=new Date();
-  const labels=[];
-  const data=[];
+  const labels=[];const data=[];
   for(let i=days-1;i>=0;i--){
     const d=new Date(now);d.setDate(d.getDate()-i);
     const label=d.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit'});
     labels.push(label);
     const dayStr=d.toLocaleDateString('es-CO');
-    const total=state.sales.filter(s=>s.type==='venta'&&s.date.startsWith(dayStr))
-      .reduce((a,s)=>a+s.total,0);
+    const total=state.sales.filter(s=>s.type==='venta'&&s.date.startsWith(dayStr)).reduce((a,s)=>a+s.total,0);
     data.push(total);
   }
   const max=Math.max(...data,1);
   const chartEl=document.getElementById('salesChart');if(!chartEl)return;
   const skip=days>14?Math.ceil(days/10):1;
-  chartEl.innerHTML=`
-    <div class="bar-chart">
-      ${data.map((v,i)=>{
-        const h=Math.round((v/max)*100);
-        const showLabel=i%skip===0;
-        return`<div class="bar-col">
-          <div class="bar-val">${v>0?cop(v):''}</div>
-          <div class="bar" style="height:${h}%" title="${labels[i]}: ${cop(v)}">
-            <div class="bar-fill"></div>
-          </div>
-          <div class="bar-label">${showLabel?labels[i]:''}</div>
-        </div>`;
-      }).join('')}
+  chartEl.innerHTML=`<div class="bar-chart">${data.map((v,i)=>{
+    const h=Math.round((v/max)*100);
+    return`<div class="bar-col">
+      <div class="bar-val">${v>0?cop(v):''}</div>
+      <div class="bar" style="height:${h}%" title="${labels[i]}: ${cop(v)}"><div class="bar-fill"></div></div>
+      <div class="bar-label">${i%skip===0?labels[i]:''}</div>
     </div>`;
+  }).join('')}</div>`;
 }
 
 function switchChart(period,btn){
   document.querySelectorAll('.chart-tab').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-  renderSalesChart(period);
+  btn.classList.add('active');renderSalesChart(period);
 }
 
 function renderRanking(){
   const el=document.getElementById('empRanking');if(!el)return;
-  const emps=state.employees.filter(e=>e.role!=='admin');
-  const ranked=emps.map(e=>{
+  const ranked=state.employees.filter(e=>e.role!=='admin').map(e=>{
     const sv=state.sales.filter(s=>s.empId===e.id&&s.type==='venta');
     const total=sv.reduce((a,s)=>a+s.total,0);
     const gain=sv.reduce((a,s)=>a+s.items.reduce((b,i)=>{const p=state.products.find(x=>x.id===i.pid);return b+(i.price-(p?p.cost:0))*i.qty;},0),0);
     return{...e,total,count:sv.length,gain};
   }).sort((a,b)=>b.total-a.total);
-
   const medals=['🥇','🥈','🥉'];
   el.innerHTML=ranked.length?ranked.map((e,i)=>{
-    const maxTotal=ranked[0].total||1;
-    const pct=Math.round((e.total/maxTotal)*100);
+    const pct=Math.round((e.total/(ranked[0].total||1))*100);
     return`<div class="ranking-item">
       <div class="ranking-medal">${medals[i]||`#${i+1}`}</div>
       <div class="ranking-body">
         <div class="ranking-name">${e.name}</div>
-        <div class="ranking-bar-wrap">
-          <div class="ranking-bar" style="width:${pct}%"></div>
-        </div>
+        <div class="ranking-bar-wrap"><div class="ranking-bar" style="width:${pct}%"></div></div>
         <div class="ranking-stats">${cop(e.total)} · ${e.count} ventas · ganancia ${cop(e.gain)}</div>
       </div>
     </div>`;
   }).join(''):'<div class="empty-state">Sin empleados</div>';
 }
 
-// ===================== CIERRE DE CAJA =====================
+// ===================== CIERRE =====================
 function initCierre(){
   const dateEl=document.getElementById('cierreDate');
   if(dateEl&&!dateEl.value)dateEl.value=todayStr();
@@ -383,59 +329,32 @@ function renderCierre(){
   const dateEl=document.getElementById('cierreDate');
   const selectedDate=dateEl?dateEl.value:'';
   const el=document.getElementById('cierreContent');if(!el)return;
-
-  // Filtrar ventas del día seleccionado
-  const dayStr=selectedDate?new Date(selectedDate+'T12:00:00').toLocaleDateString('es-CO'):'';
-  const salesOfDay=state.sales.filter(s=>s.date.includes(dayStr.split('/')[0]+'/'+dayStr.split('/')[1]+'/'+dayStr.split('/')[2].slice(0,4)));
-
-  // Filtro más robusto
+  if(!selectedDate){el.innerHTML='<div class="info-box">Selecciona una fecha para ver el cierre.</div>';return;}
   const daySales=state.sales.filter(s=>{
-    if(!selectedDate)return false;
     const parts=selectedDate.split('-');
-    const d=parseInt(parts[2]);const m=parseInt(parts[1]);const y=parseInt(parts[0]);
-    const label=`${d.toString().padStart(2,'0')}/${m.toString().padStart(2,'0')}/${y}`;
+    const label=`${parts[2]}/${parts[1]}/${parts[0]}`;
     return s.date.startsWith(label)||s.date.includes(label);
   });
-
-  const emps=state.employees.filter(e=>e.role!=='admin');
-  if(!selectedDate){el.innerHTML='<div class="info-box">Selecciona una fecha para ver el cierre.</div>';return;}
-  if(!daySales.length){el.innerHTML=`<div class="empty-state"><div class="icon">📭</div><p>Sin ventas registradas el ${selectedDate}</p></div>`;return;}
-
+  if(!daySales.length){el.innerHTML=`<div class="empty-state"><div class="icon">📭</div><p>Sin ventas el ${selectedDate}</p></div>`;return;}
   let html='<div class="cierre-grid">';
-  for(const emp of emps){
+  for(const emp of state.employees.filter(e=>e.role!=='admin')){
     const empSales=daySales.filter(s=>s.empId===emp.id&&s.type==='venta');
     const empRefunds=daySales.filter(s=>s.empId===emp.id&&s.type==='reembolso');
     if(!empSales.length&&!empRefunds.length)continue;
     const totalVentas=empSales.reduce((a,s)=>a+s.total,0);
     const totalRefunds=empRefunds.reduce((a,s)=>a+s.total,0);
     const ganancia=empSales.reduce((a,s)=>a+s.items.reduce((b,i)=>{const p=state.products.find(x=>x.id===i.pid);return b+(i.price-(p?p.cost:0))*i.qty;},0),0);
-
-    // Productos más vendidos del día
     const prodCount={};
     empSales.forEach(s=>s.items.forEach(i=>{const k=i.name+(i.variant?` (${i.variant})`:'');prodCount[k]=(prodCount[k]||0)+i.qty;}));
     const topProds=Object.entries(prodCount).sort((a,b)=>b[1]-a[1]).slice(0,3);
-
     html+=`<div class="cierre-card">
       <div class="cierre-emp-name">👤 ${emp.name}</div>
       <div class="cierre-stats">
-        <div class="cierre-stat">
-          <div class="cierre-stat-label">Ventas</div>
-          <div class="cierre-stat-val success">${cop(totalVentas)}</div>
-          <div class="cierre-stat-sub">${empSales.length} transacciones</div>
-        </div>
-        <div class="cierre-stat">
-          <div class="cierre-stat-label">Ganancia</div>
-          <div class="cierre-stat-val accent">${cop(ganancia)}</div>
-        </div>
-        <div class="cierre-stat">
-          <div class="cierre-stat-label">Reembolsos</div>
-          <div class="cierre-stat-val danger">${cop(totalRefunds)}</div>
-        </div>
+        <div class="cierre-stat"><div class="cierre-stat-label">Ventas</div><div class="cierre-stat-val success">${cop(totalVentas)}</div><div class="cierre-stat-sub">${empSales.length} transacciones</div></div>
+        <div class="cierre-stat"><div class="cierre-stat-label">Ganancia</div><div class="cierre-stat-val accent">${cop(ganancia)}</div></div>
+        <div class="cierre-stat"><div class="cierre-stat-label">Reembolsos</div><div class="cierre-stat-val danger">${cop(totalRefunds)}</div></div>
       </div>
-      ${topProds.length?`<div class="cierre-top-products">
-        <div class="cierre-top-label">Top productos</div>
-        ${topProds.map(([k,v])=>`<div class="cierre-prod-row"><span>${k}</span><span class="badge badge-ok">${v} uds</span></div>`).join('')}
-      </div>`:''}
+      ${topProds.length?`<div class="cierre-top-products"><div class="cierre-top-label">Top productos</div>${topProds.map(([k,v])=>`<div class="cierre-prod-row"><span>${k}</span><span class="badge badge-ok">${v} uds</span></div>`).join('')}</div>`:''}
     </div>`;
   }
   html+='</div>';
@@ -450,11 +369,10 @@ function renderInventory(){
     ?f.map(p=>{
       const sc=p.stock===0?'badge-low':p.stock<=p.minStock?'badge-warn':'badge-ok';
       const sl=p.stock===0?'Sin stock':p.stock<=p.minStock?'Stock bajo':'OK';
-      const varInfo=p.variants.length
-        ?`<div class="variant-chips">${p.variants.map(v=>{
-            const vc=v.stock===0?'chip-red':v.stock<=3?'chip-yellow':'chip-green';
-            return`<span class="variant-chip ${vc}">${v.name}: ${v.stock}</span>`;
-          }).join('')}</div>`:'';
+      const varInfo=p.variants.length?`<div class="variant-chips">${p.variants.map(v=>{
+        const vc=v.stock===0?'chip-red':v.stock<=3?'chip-yellow':'chip-green';
+        return`<span class="variant-chip ${vc}">${v.name}: ${v.stock}</span>`;
+      }).join('')}</div>`:'';
       return`<tr>
         <td><strong>${p.name}</strong>${varInfo}</td>
         <td><span class="cat-tag">${p.cat}</span></td>
@@ -462,22 +380,19 @@ function renderInventory(){
         <td class="num">${cop(p.wholesale)}</td>
         <td class="num"><strong>${p.stock}</strong></td>
         <td><span class="badge ${sc}">${sl}</span></td>
-        <td>
-          <div class="row-actions">
-            <button class="btn-icon btn-icon-edit" onclick="openProductModal(${p.id})" title="Editar">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-            <button class="btn-icon btn-icon-del" onclick="deleteProduct(${p.id})" title="Eliminar">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-            </button>
-          </div>
-        </td></tr>`;
-    }).join('')
-    :'<tr><td colspan="7" class="empty-td">Sin productos</td></tr>';
+        <td><div class="row-actions">
+          <button class="btn-icon btn-icon-edit" onclick="openProductModal(${p.id})">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn-icon btn-icon-del" onclick="deleteProduct(${p.id})">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+          </button>
+        </div></td>
+      </tr>`;
+    }).join(''):'<tr><td colspan="7" class="empty-td">Sin productos</td></tr>';
   renderStockAlerts();
 }
 
-// ===================== MODAL PRODUCTO =====================
 function openProductModal(id=null){
   state.editingProductId=id;
   document.getElementById('productModalTitle').textContent=id?'Editar Producto':'Agregar Producto';
@@ -503,25 +418,18 @@ function renderVariantTags(){
   if(!state.editingVariants.length){
     el.innerHTML='<div class="hint-text" style="padding:8px 0">Sin variantes — agrega sabores, tallas, colores, etc.</div>';return;
   }
-  el.innerHTML=`<table class="variant-table">
-    <thead><tr><th>Variante</th><th>Stock</th><th></th></tr></thead>
-    <tbody>${state.editingVariants.map((v,i)=>`
-      <tr>
-        <td><strong>${v.name}</strong></td>
-        <td><input type="number" min="0" value="${v.stock}"
-          onchange="state.editingVariants[${i}].stock=parseInt(this.value)||0"
-          class="stock-input" /></td>
-        <td><button class="btn-icon btn-icon-del" onclick="removeVariant(${i})">✕</button></td>
-      </tr>`).join('')}
-    </tbody></table>`;
+  el.innerHTML=`<table class="variant-table"><thead><tr><th>Variante</th><th>Stock</th><th></th></tr></thead>
+    <tbody>${state.editingVariants.map((v,i)=>`<tr>
+      <td><strong>${v.name}</strong></td>
+      <td><input type="number" min="0" value="${v.stock}" onchange="state.editingVariants[${i}].stock=parseInt(this.value)||0" class="stock-input"/></td>
+      <td><button class="btn-icon btn-icon-del" onclick="removeVariant(${i})">✕</button></td>
+    </tr>`).join('')}</tbody></table>`;
 }
 
 function addVariant(){
-  const inp=document.getElementById('variantInput');
-  const v=inp.value.trim();if(!v)return;
+  const inp=document.getElementById('variantInput');const v=inp.value.trim();if(!v)return;
   if(state.editingVariants.find(x=>x.name.toLowerCase()===v.toLowerCase())){toast('Esa variante ya existe','error');return;}
-  state.editingVariants.push({name:v,stock:0});
-  inp.value='';renderVariantTags();
+  state.editingVariants.push({name:v,stock:0});inp.value='';renderVariantTags();
 }
 function removeVariant(i){state.editingVariants.splice(i,1);renderVariantTags();}
 
@@ -551,8 +459,7 @@ async function saveProduct(){
 async function deleteProduct(id){
   if(!confirm('¿Eliminar este producto y todas sus variantes?'))return;
   state.products=state.products.filter(p=>p.id!==id);
-  await deleteProductDB(id);
-  renderInventory();toast('Eliminado');
+  await deleteProductDB(id);renderInventory();toast('Eliminado');
 }
 
 // ===================== ASIGNAR =====================
@@ -569,18 +476,15 @@ function renderAssignTable(){
   const wrap=document.getElementById('assignTableWrap');
   const empId=parseInt(document.getElementById('assignEmpSel').value);
   if(!empId){wrap.innerHTML='';return;}
-  const emp=state.employees.find(e=>e.id===empId);
-  if(!emp){wrap.innerHTML='';return;}
+  const emp=state.employees.find(e=>e.id===empId);if(!emp){wrap.innerHTML='';return;}
   const asgn=state.assignments[empId]||{};
   const avMap=state.assignmentVariants[empId]||{};
-
   let html=`<div class="assign-card">
     <div class="assign-header">
       <span>👤 ${emp.name}</span>
       <button class="btn btn-primary btn-sm" onclick="saveAssignments(${empId})">💾 Guardar asignaciones</button>
     </div>
     <div class="assign-products">`;
-
   for(const p of state.products){
     const a=asgn[p.id]||{sellPrice:0};
     html+=`<div class="assign-product">
@@ -591,23 +495,19 @@ function renderAssignTable(){
           <div style="display:flex;align-items:center;gap:6px;">
             <label class="muted-sm">Precio venta:</label>
             <input type="number" min="${p.wholesale}" step="1" value="${a.sellPrice||''}"
-              id="asgn_price_${empId}_${p.id}" placeholder="0"
-              class="price-input" />
+              id="asgn_price_${empId}_${p.id}" placeholder="0" class="price-input"/>
           </div>
         </div>
       </div>
       <div class="assign-variants">`;
     for(const v of p.variants){
-      const av=avMap[v.id];
-      const assignedStock=av?av.stock:0;
+      const av=avMap[v.id];const assignedStock=av?av.stock:0;
       const sc=assignedStock===0?'chip-red':assignedStock<=3?'chip-yellow':'chip-green';
       html+=`<div class="assign-variant-card">
         <div class="av-name">${v.name}</div>
         <div class="av-total">Total: ${v.stock}</div>
-        <div class="av-assign">
-          <label>Asignar:</label>
-          <input type="number" min="0" max="${v.stock}" value="${assignedStock}"
-            id="asgn_var_${empId}_${v.id}" class="stock-input" />
+        <div class="av-assign"><label>Asignar:</label>
+          <input type="number" min="0" max="${v.stock}" value="${assignedStock}" id="asgn_var_${empId}_${v.id}" class="stock-input"/>
         </div>
         <div class="variant-chip ${sc}" style="margin-top:4px">Asignado: ${assignedStock}</div>
       </div>`;
@@ -626,8 +526,7 @@ async function saveAssignments(empId){
     const priceEl=document.getElementById(`asgn_price_${empId}_${p.id}`);
     const sellPrice=parseFloat(priceEl?.value)||0;
     if(sellPrice>0&&sellPrice<p.wholesale){errors.push(`${p.name}: precio mín. ${cop(p.wholesale)}`);continue;}
-    const variantsData=[];
-    let ok=true;
+    const variantsData=[];let ok=true;
     for(const v of p.variants){
       const stockEl=document.getElementById(`asgn_var_${empId}_${v.id}`);
       const stock=parseInt(stockEl?.value)||0;
@@ -672,10 +571,8 @@ function renderSales(){
 function deleteAllSales(){document.getElementById('deleteModal').classList.add('open');}
 
 async function confirmDeleteAll(){
-  await deleteAllSalesDB();
-  state.sales=[];
-  closeModal('deleteModal');
-  renderSales();
+  await deleteAllSalesDB();state.sales=[];
+  closeModal('deleteModal');renderSales();
   if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();
   toast('Historial eliminado');
 }
@@ -692,21 +589,17 @@ function renderEmployees(){
     const avMap=state.assignmentVariants[e.id]||{};
     const assignedProds=state.products.filter(p=>asgn[p.id]&&asgn[p.id].sellPrice>0);
     const month=currentMonth();
-    const goalKey=`${e.id}_${month}`;
-    const goal=state.goals[goalKey]||0;
-    const monthSales=state.sales.filter(s=>s.empId===e.id&&s.type==='venta'&&s.date.includes('/'+month.slice(0,4)));
+    const goal=state.goals[`${e.id}_${month}`]||0;
+    const monthSales=sv.filter(s=>{const parts=month.split('-');return s.date.includes(parts[1]+'/'+parts[0]);});
     const monthTotal=monthSales.reduce((a,s)=>a+s.total,0);
     const pct=goal>0?Math.min(Math.round((monthTotal/goal)*100),100):0;
-
     return`<div class="emp-card">
       <div class="emp-card-head">
         <div class="emp-avatar">${e.name.charAt(0).toUpperCase()}</div>
         <div class="emp-info">
           <div class="emp-name">${e.name}</div>
           <div class="emp-user">@${e.user} · ${sv.length} ventas · ${cop(total)}</div>
-          ${goal?`<div class="emp-goal-bar-wrap">
-            <div class="emp-goal-bar" style="width:${pct}%"></div>
-          </div>
+          ${goal?`<div class="emp-goal-bar-wrap"><div class="emp-goal-bar" style="width:${pct}%"></div></div>
           <div class="emp-goal-label">Meta ${month}: ${pct}% (${cop(monthTotal)} / ${cop(goal)})</div>`:''}
         </div>
         <div class="emp-actions">
@@ -770,25 +663,18 @@ async function deleteEmployee(id){
 // ===================== METAS =====================
 function renderMetas(){
   const el=document.getElementById('metasContent');if(!el)return;
-  const emps=state.employees.filter(e=>e.role!=='admin');
   const month=currentMonth();
-  el.innerHTML=`<div class="metas-grid">${emps.map(e=>{
-    const goalKey=`${e.id}_${month}`;
-    const goal=state.goals[goalKey]||0;
+  el.innerHTML=`<div class="metas-grid">${state.employees.filter(e=>e.role!=='admin').map(e=>{
+    const goal=state.goals[`${e.id}_${month}`]||0;
     const sv=state.sales.filter(s=>s.empId===e.id&&s.type==='venta');
-    const monthSales=sv.filter(s=>{
-      const parts=month.split('-');
-      return s.date.includes(parts[1]+'/'+parts[0]);
-    });
-    const monthTotal=monthSales.reduce((a,s)=>a+s.total,0);
+    const parts=month.split('-');
+    const monthTotal=sv.filter(s=>s.date.includes(parts[1]+'/'+parts[0])).reduce((a,s)=>a+s.total,0);
     const pct=goal>0?Math.min(Math.round((monthTotal/goal)*100),100):0;
     return`<div class="meta-card">
       <div class="meta-emp">${e.name}</div>
       <div class="meta-month">${month}</div>
       ${goal?`<div class="meta-progress">
-        <div class="meta-bar-wrap">
-          <div class="meta-bar" style="width:${pct}%"></div>
-        </div>
+        <div class="meta-bar-wrap"><div class="meta-bar" style="width:${pct}%"></div></div>
         <div class="meta-nums">${cop(monthTotal)} / ${cop(goal)}</div>
         <div class="meta-pct ${pct>=100?'pct-done':''}">${pct}% ${pct>=100?'🎉 ¡Meta cumplida!':pct>=70?'🔥 Casi':'💪 En progreso'}</div>
       </div>`:`<div class="meta-empty">Sin meta establecida</div>`}
@@ -804,8 +690,7 @@ function openGoalModal(empId,empName){
   _goalEmpId=empId;
   document.getElementById('goalEmpName').value=empName;
   document.getElementById('goalMonth').value=currentMonth();
-  const existing=state.goals[`${empId}_${currentMonth()}`]||0;
-  document.getElementById('goalAmount').value=existing||'';
+  document.getElementById('goalAmount').value=state.goals[`${empId}_${currentMonth()}`]||'';
   document.getElementById('goalModal').classList.add('open');
 }
 
@@ -825,14 +710,13 @@ async function renderClientsAdmin(){
   state.clients=clients||[];
   const el=document.getElementById('clientsBody');if(!el)return;
   const empMap={};state.employees.forEach(e=>empMap[e.id]=e.name);
-  el.innerHTML=state.clients.map(c=>`
-    <tr>
-      <td><strong>${c.name}</strong></td>
-      <td>${c.phone||'—'}</td>
-      <td>${empMap[c.empId]||'—'}</td>
-      <td class="muted-td">${c.lastSale||'—'}</td>
-      <td style="color:var(--success);font-weight:600">${cop(c.totalPurchases)}</td>
-    </tr>`).join('')||'<tr><td colspan="5" class="empty-td">Sin clientes registrados</td></tr>';
+  el.innerHTML=state.clients.map(c=>`<tr>
+    <td><strong>${c.name}</strong></td>
+    <td>${c.phone||'—'}</td>
+    <td>${empMap[c.empId]||'—'}</td>
+    <td class="muted-td">${c.lastSale||'—'}</td>
+    <td style="color:var(--success);font-weight:600">${cop(c.totalPurchases)}</td>
+  </tr>`).join('')||'<tr><td colspan="5" class="empty-td">Sin clientes registrados</td></tr>';
 }
 
 // ===================== CHANGELOG =====================
@@ -840,14 +724,13 @@ async function renderChangelog(){
   const logs=await getChangelogAPI();
   const el=document.getElementById('changelogBody');if(!el)return;
   const actionColors={CREATE:'var(--success)',UPDATE:'var(--accent)',DELETE:'var(--danger)',LOGIN:'var(--muted)',ASSIGN:'var(--warn)'};
-  el.innerHTML=(logs||[]).map(l=>`
-    <tr>
-      <td class="muted-td date-td">${new Date(l.createdAt).toLocaleString('es-CO')}</td>
-      <td><strong>${l.empName||'—'}</strong></td>
-      <td><span style="color:${actionColors[l.action]||'var(--text)'};font-weight:600">${l.action}</span></td>
-      <td class="muted-td">${l.entity||'—'}</td>
-      <td class="muted-td">${l.detail||'—'}</td>
-    </tr>`).join('')||'<tr><td colspan="5" class="empty-td">Sin registros</td></tr>';
+  el.innerHTML=(logs||[]).map(l=>`<tr>
+    <td class="muted-td date-td">${new Date(l.createdAt).toLocaleString('es-CO')}</td>
+    <td><strong>${l.empName||'—'}</strong></td>
+    <td><span style="color:${actionColors[l.action]||'var(--text)'};font-weight:600">${l.action}</span></td>
+    <td class="muted-td">${l.entity||'—'}</td>
+    <td class="muted-td">${l.detail||'—'}</td>
+  </tr>`).join('')||'<tr><td colspan="5" class="empty-td">Sin registros</td></tr>';
 }
 
 // ===================== NUEVA VENTA =====================
@@ -872,7 +755,7 @@ function initNewSale(){
       myProducts.map(p=>`<option value="${p.id}">${p.name} — ${cop(p.sellPrice)}</option>`).join('');
   }
   ['pvNote','pvPrice','pvClientName','pvClientPhone'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('pvDiscount').value=0;
+  const disc=document.getElementById('pvDiscount');if(disc)disc.value=0;
   const infoEl=document.getElementById('pvStockInfo');if(infoEl)infoEl.textContent='';
   const varWrap=document.getElementById('pvVariantWrap');if(varWrap)varWrap.style.display='none';
   renderEmpInventory(myProducts);
@@ -882,23 +765,20 @@ function initNewSale(){
 
 function loadClientSuggestions(){
   const empId=state.currentUser.empId;
-  const myClients=state.clients.filter(c=>c.empId===empId);
   const dl=document.getElementById('clientSuggestions');
-  if(dl)dl.innerHTML=myClients.map(c=>`<option value="${c.name}" data-phone="${c.phone||''}">`).join('');
+  if(dl)dl.innerHTML=state.clients.filter(c=>c.empId===empId).map(c=>`<option value="${c.name}" data-phone="${c.phone||''}">`).join('');
 }
 
 function filterClientSuggestions(){
   const nameEl=document.getElementById('pvClientName');
   const phoneEl=document.getElementById('pvClientPhone');
   if(!nameEl||!phoneEl)return;
-  const empId=state.currentUser.empId;
-  const found=state.clients.find(c=>c.empId===empId&&c.name===nameEl.value);
+  const found=state.clients.find(c=>c.empId===state.currentUser.empId&&c.name===nameEl.value);
   if(found&&found.phone)phoneEl.value=found.phone;
 }
 
 function renderEmpInventory(myProducts){
-  const stockList=document.getElementById('empStockList');
-  if(!stockList)return;
+  const stockList=document.getElementById('empStockList');if(!stockList)return;
   if(!myProducts.length){
     stockList.innerHTML='<div class="empty-state"><div class="icon">📦</div><p>El administrador aún no te ha asignado productos.</p></div>';return;
   }
@@ -908,12 +788,10 @@ function renderEmpInventory(myProducts){
         <div><strong>${p.name}</strong><br><span class="muted-sm">${p.cat}</span></div>
         <div class="inv-price">${cop(p.sellPrice)}</div>
       </div>
-      <div class="variant-chips">
-        ${p.variants.map(v=>{
-          const sc=v.assignedStock===0?'chip-red':v.assignedStock<=3?'chip-yellow':'chip-green';
-          return`<span class="variant-chip ${sc}">${v.name}: ${v.assignedStock}</span>`;
-        }).join('')}
-      </div>
+      <div class="variant-chips">${p.variants.map(v=>{
+        const sc=v.assignedStock===0?'chip-red':v.assignedStock<=3?'chip-yellow':'chip-green';
+        return`<span class="variant-chip ${sc}">${v.name}: ${v.assignedStock}</span>`;
+      }).join('')}</div>
     </div>`).join('');
 }
 
@@ -923,22 +801,72 @@ function renderMyGoalCard(){
   const month=currentMonth();
   const goal=state.goals[`${empId}_${month}`]||0;
   if(!goal){el.innerHTML='';return;}
-  const sv=state.sales.filter(s=>s.empId===empId&&s.type==='venta');
   const parts=month.split('-');
-  const monthSales=sv.filter(s=>s.date.includes(parts[1]+'/'+parts[0]));
-  const monthTotal=monthSales.reduce((a,s)=>a+s.total,0);
+  const monthTotal=state.sales.filter(s=>s.empId===empId&&s.type==='venta'&&s.date.includes(parts[1]+'/'+parts[0])).reduce((a,s)=>a+s.total,0);
   const pct=Math.min(Math.round((monthTotal/goal)*100),100);
   const falta=Math.max(goal-monthTotal,0);
   el.innerHTML=`<h4 class="card-title">🎯 Meta del mes</h4>
     <div class="goal-progress-wrap">
       <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${pct}%"></div></div>
-      <div class="goal-info">
-        <span class="goal-pct">${pct}%</span>
-        <span class="goal-nums">${cop(monthTotal)} / ${cop(goal)}</span>
-      </div>
-      ${falta>0?`<div class="goal-falta">Te faltan <strong>${cop(falta)}</strong> para la meta 💪</div>`:
-        '<div class="goal-done">🎉 ¡Meta del mes cumplida!</div>'}
+      <div class="goal-info"><span class="goal-pct">${pct}%</span><span class="goal-nums">${cop(monthTotal)} / ${cop(goal)}</span></div>
+      ${falta>0?`<div class="goal-falta">Te faltan <strong>${cop(falta)}</strong> para la meta 💪</div>`:'<div class="goal-done">🎉 ¡Meta del mes cumplida!</div>'}
     </div>`;
+}
+
+// ── NUEVA FUNCIÓN: calcula y muestra descuento en tiempo real ──
+function updatePriceInfo(){
+  const pid=parseInt(document.getElementById('pvProduct')?.value);
+  const price=parseFloat(document.getElementById('pvPrice')?.value)||0;
+  const infoEl=document.getElementById('pvStockInfo');
+  if(!infoEl||!pid)return;
+  const p=getMyAssignedProducts().find(x=>x.id===pid);
+  if(!p)return;
+  const vid=parseInt(document.getElementById('pvVariant')?.value);
+  const v=p.variants.find(x=>x.id===vid);
+
+  let discountLine='';
+  if(price>0&&price<p.sellPrice){
+    const pct=Math.round(((p.sellPrice-price)/p.sellPrice)*100);
+    const ahorro=p.sellPrice-price;
+    discountLine=`<span style="color:var(--warn);font-weight:600;background:rgba(245,158,11,0.1);padding:2px 8px;border-radius:6px;border:1px solid rgba(245,158,11,0.2)">🏷️ Descuento al cliente: ${pct}% (ahorra ${cop(ahorro)})</span>`;
+  }else if(price>0&&price===p.sellPrice){
+    discountLine=`<span style="color:var(--muted);font-size:11px">Sin descuento aplicado</span>`;
+  }else if(price>p.sellPrice){
+    discountLine=`<span style="color:var(--success);font-size:11px">⬆️ Por encima del precio sugerido</span>`;
+  }
+
+  infoEl.innerHTML=`
+    <span>Sugerido: <strong style="color:var(--accent)">${cop(p.sellPrice)}</strong></span>
+    <span>Mínimo: <strong style="color:var(--danger)">${cop(p.wholesale)}</strong></span>
+    ${v?`<span>Stock <strong>${v.name}</strong>: <strong>${v.assignedStock} uds</strong></span>`:''}
+    ${discountLine}`;
+}
+
+function onPvProductChange(){
+  const sel=document.getElementById('pvProduct');if(!sel)return;
+  const pid=parseInt(sel.value);
+  const p=getMyAssignedProducts().find(x=>x.id===pid);
+  const priceEl=document.getElementById('pvPrice');
+  const varWrap=document.getElementById('pvVariantWrap');
+  const varSel=document.getElementById('pvVariant');
+  if(p&&priceEl){
+    priceEl.value=Math.round(p.sellPrice);
+    varWrap.style.display='block';
+    varSel.innerHTML='<option value="">— Selecciona variante —</option>'+
+      p.variants.map(v=>{
+        const sc=v.assignedStock===0?' 🔴':v.assignedStock<=3?' 🟡':' 🟢';
+        return`<option value="${v.id}" ${v.assignedStock===0?'disabled':''}>${sc} ${v.name} — ${v.assignedStock} disp.</option>`;
+      }).join('');
+    updatePriceInfo();
+  }else{
+    if(priceEl)priceEl.value='';
+    document.getElementById('pvStockInfo').textContent='';
+    if(varWrap)varWrap.style.display='none';
+  }
+}
+
+function onPvVariantChange(){
+  updatePriceInfo();
 }
 
 function updateDiscountPreview(){
@@ -949,46 +877,7 @@ function updateDiscountPreview(){
   if(!disc||!price){el.textContent='';return;}
   const original=price*qty;
   const descuento=original*(disc/100);
-  const final=original-descuento;
-  el.textContent=`Original: ${cop(original)} → Descuento: ${cop(descuento)} → Final: ${cop(final)}`;
-}
-
-function onPvProductChange(){
-  const sel=document.getElementById('pvProduct');if(!sel)return;
-  const pid=parseInt(sel.value);
-  const myProducts=getMyAssignedProducts();
-  const p=myProducts.find(x=>x.id===pid);
-  const priceEl=document.getElementById('pvPrice');
-  const infoEl=document.getElementById('pvStockInfo');
-  const varWrap=document.getElementById('pvVariantWrap');
-  const varSel=document.getElementById('pvVariant');
-  if(p&&priceEl){
-    priceEl.value=Math.round(p.sellPrice);
-    if(infoEl)infoEl.innerHTML=`<span>Precio sugerido: <strong style="color:var(--accent)">${cop(p.sellPrice)}</strong></span>
-      <span>Mínimo: <strong style="color:var(--danger)">${cop(p.wholesale)}</strong></span>`;
-    varWrap.style.display='block';
-    varSel.innerHTML='<option value="">— Selecciona variante —</option>'+
-      p.variants.map(v=>{
-        const sc=v.assignedStock===0?' 🔴':v.assignedStock<=3?' 🟡':' 🟢';
-        return`<option value="${v.id}" ${v.assignedStock===0?'disabled':''}>${sc} ${v.name} — ${v.assignedStock} disp.</option>`;
-      }).join('');
-  }else{
-    if(priceEl)priceEl.value='';
-    if(infoEl)infoEl.textContent='';
-    if(varWrap)varWrap.style.display='none';
-  }
-}
-
-function onPvVariantChange(){
-  const varSel=document.getElementById('pvVariant');
-  const infoEl=document.getElementById('pvStockInfo');if(!varSel||!infoEl)return;
-  const vid=parseInt(varSel.value);
-  const pid=parseInt(document.getElementById('pvProduct')?.value);
-  const p=getMyAssignedProducts().find(x=>x.id===pid);if(!p)return;
-  const v=p.variants.find(x=>x.id===vid);if(!v)return;
-  infoEl.innerHTML=`<span>Precio sugerido: <strong style="color:var(--accent)">${cop(p.sellPrice)}</strong></span>
-    <span>Mínimo: <strong style="color:var(--danger)">${cop(p.wholesale)}</strong></span>
-    <span>Stock <strong>${v.name}</strong>: <strong>${v.assignedStock} uds</strong></span>`;
+  el.textContent=`Original: ${cop(original)} → Descuento: ${cop(descuento)} → Final: ${cop(original-descuento)}`;
 }
 
 function addToCart(){
@@ -997,8 +886,7 @@ function addToCart(){
   const qty=parseInt(document.getElementById('pvQty').value)||1;
   const price=parseFloat(document.getElementById('pvPrice').value)||0;
   const discount=parseFloat(document.getElementById('pvDiscount').value)||0;
-  const myProducts=getMyAssignedProducts();
-  const p=myProducts.find(x=>x.id===pid);
+  const p=getMyAssignedProducts().find(x=>x.id===pid);
   if(!p){toast('Selecciona un producto','error');return;}
   if(!vid){toast('Selecciona una variante','error');return;}
   const v=p.variants.find(x=>x.id===vid);
@@ -1019,8 +907,8 @@ function addToCart(){
   document.getElementById('pvDiscount').value=0;
   document.getElementById('pvStockInfo').textContent='';
   document.getElementById('pvVariantWrap').style.display='none';
-  document.getElementById('discountPreview').textContent='';
-  document.getElementById('cartCount').textContent=state.cart.reduce((a,c)=>a+c.qty,0);
+  const dp=document.getElementById('discountPreview');if(dp)dp.textContent='';
+  const cc=document.getElementById('cartCount');if(cc)cc.textContent=state.cart.reduce((a,c)=>a+c.qty,0);
 }
 
 function removeFromCart(cartKey){state.cart=state.cart.filter(c=>c.cartKey!==cartKey);renderCart();}
@@ -1080,7 +968,6 @@ async function confirmSale(){
     if(prod){const variant=prod.variants.find(v=>v.id===c.variantId);if(variant)variant.stock-=c.qty;prod.stock=prod.variants.reduce((s,v)=>s+v.stock,0);}
   }
   state.sales.unshift({...newSale,id:saved.id});
-  // Actualizar clientes localmente
   if(clientName){
     const existing=state.clients.find(c=>c.empId===empId&&c.name===clientName);
     if(existing){existing.lastSale=newSale.date;existing.totalPurchases+=total;if(clientPhone)existing.phone=clientPhone;}
@@ -1090,14 +977,12 @@ async function confirmSale(){
   state.lastReceipt={...newSale,id:saved.id};
   toast(`Venta registrada: ${cop(total)}`);
   showReceiptModal(state.lastReceipt);
-  state.cart=[];initNewSale();
-  renderStockAlerts();
+  state.cart=[];initNewSale();renderStockAlerts();
 }
 
 // ===================== COMPROBANTE =====================
 function showReceiptModal(sale){
   const el=document.getElementById('receiptContent');if(!el)return;
-  const ganancia=sale.items.reduce((a,i)=>{const p=state.products.find(x=>x.id===i.pid);return a+(i.price-(p?p.cost:0))*i.qty;},0);
   el.innerHTML=`<div class="receipt">
     <div class="receipt-brand">⚡ StockMaster Pro</div>
     <div class="receipt-divider"></div>
@@ -1140,8 +1025,7 @@ function shareReceiptWhatsApp(){
   const items=sale.items.map(i=>`• ${i.name}${i.variant?` (${i.variant})`:''} ×${i.qty} → ${cop(i.qty*i.price)}`).join('\n');
   const msg=`*Comprobante de venta ⚡*\nFecha: ${sale.date}\nVendedor: ${sale.emp}${sale.clientName?'\nCliente: '+sale.clientName:''}\n\n${items}\n\n*Total: ${cop(sale.total)}*${sale.note?'\nNota: '+sale.note:''}\n\n_StockMaster Pro_`;
   const phone=document.getElementById('pvClientPhone')?.value||'';
-  const url=`https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`;
-  window.open(url,'_blank');
+  window.open(`https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank');
   closeModal('receiptModal');
 }
 
@@ -1162,11 +1046,9 @@ async function confirmRefund(){
   if(!reason){toast('Indica el motivo','error');return;}
   const p=state.products.find(x=>x.id===id);
   const empId=state.currentUser.empId;
-  const newRefund={
-    date:now(),emp:state.currentUser.name,empId,
+  const newRefund={date:now(),emp:state.currentUser.name,empId,
     items:[{name:p?p.name:'Producto',variant:'',qty,price:amount,pid:id}],
-    total:amount,type:'reembolso',note:reason,discount:0,clientName:'',clientPhone:''
-  };
+    total:amount,type:'reembolso',note:reason,discount:0,clientName:'',clientPhone:''};
   const saved=await saveSaleDB(newRefund);
   state.sales.unshift({...newRefund,id:saved.id});
   toast('Reembolso registrado');
@@ -1178,14 +1060,12 @@ async function confirmRefund(){
 function renderMySales(){
   const empId=state.currentUser.empId;
   const mine=state.sales.filter(s=>s.empId===empId);
-  // Banner meta
   const month=currentMonth();
   const goal=state.goals[`${empId}_${month}`]||0;
   const banner=document.getElementById('myGoalBanner');
   if(banner&&goal){
     const parts=month.split('-');
-    const monthSales=mine.filter(s=>s.type==='venta'&&s.date.includes(parts[1]+'/'+parts[0]));
-    const monthTotal=monthSales.reduce((a,s)=>a+s.total,0);
+    const monthTotal=mine.filter(s=>s.type==='venta'&&s.date.includes(parts[1]+'/'+parts[0])).reduce((a,s)=>a+s.total,0);
     const pct=Math.min(Math.round((monthTotal/goal)*100),100);
     banner.innerHTML=`<div class="goal-banner">
       <div class="goal-banner-label">🎯 Meta ${month}: ${pct}% — ${cop(monthTotal)} / ${cop(goal)}</div>
@@ -1213,29 +1093,21 @@ function renderMySales(){
 }
 
 function viewReceipt(saleId){
-  const sale=state.sales.find(s=>s.id===saleId);
-  if(!sale)return;
-  state.lastReceipt=sale;
-  showReceiptModal(sale);
+  const sale=state.sales.find(s=>s.id===saleId);if(!sale)return;
+  state.lastReceipt=sale;showReceiptModal(sale);
 }
 
 // ===================== MIS CLIENTES =====================
 function renderMyClients(){
   const empId=state.currentUser.empId;
-  const myClients=state.clients.filter(c=>c.empId===empId);
   const el=document.getElementById('myClientsBody');if(!el)return;
-  el.innerHTML=myClients.map(c=>`
-    <tr>
-      <td><strong>${c.name}</strong></td>
-      <td>${c.phone||'—'}</td>
-      <td class="muted-td">${c.lastSale||'—'}</td>
-      <td style="color:var(--success);font-weight:600">${cop(c.totalPurchases)}</td>
-      <td>
-        ${c.phone?`<button class="btn btn-ghost btn-sm" onclick="window.open('https://wa.me/${c.phone.replace(/\D/g,'')}','_blank')">
-          💬 WhatsApp
-        </button>`:'—'}
-      </td>
-    </tr>`).join('')||'<tr><td colspan="5" class="empty-td">Sin clientes registrados</td></tr>';
+  el.innerHTML=state.clients.filter(c=>c.empId===empId).map(c=>`<tr>
+    <td><strong>${c.name}</strong></td>
+    <td>${c.phone||'—'}</td>
+    <td class="muted-td">${c.lastSale||'—'}</td>
+    <td style="color:var(--success);font-weight:600">${cop(c.totalPurchases)}</td>
+    <td>${c.phone?`<button class="btn btn-ghost btn-sm" onclick="window.open('https://wa.me/${c.phone.replace(/\D/g,'')}','_blank')">💬 WhatsApp</button>`:'—'}</td>
+  </tr>`).join('')||'<tr><td colspan="5" class="empty-td">Sin clientes registrados</td></tr>';
 }
 
 // ===================== EXPORT =====================
@@ -1243,8 +1115,7 @@ function exportSalesExcel(){
   const rows=[['#','Fecha','Empleado','Cliente','Productos','Descuento','Total','Ganancia','Tipo','Nota']];
   state.sales.forEach(s=>{
     const ganancia=s.items.reduce((a,i)=>{const p=state.products.find(x=>x.id===i.pid);return a+(i.price-(p?p.cost:0))*i.qty;},0);
-    rows.push([s.id,s.date,s.emp,s.clientName||'',s.items.map(i=>i.name+' ×'+i.qty).join('; '),
-      (s.discount||0)+'%',s.total,s.type==='venta'?ganancia:0,s.type,s.note||'']);
+    rows.push([s.id,s.date,s.emp,s.clientName||'',s.items.map(i=>i.name+' ×'+i.qty).join('; '),(s.discount||0)+'%',s.total,s.type==='venta'?ganancia:0,s.type,s.note||'']);
   });
   downloadCSV(rows,'ventas_stockmaster.csv');
 }
@@ -1272,56 +1143,49 @@ function exportCierreExcel(){
 
 function exportSalesPDF(){
   const rows=state.sales.slice(0,50);
-  let html=`<html><head><title>Ventas StockMaster</title>
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Ventas StockMaster</title>
   <style>body{font-family:sans-serif;padding:20px}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}
   th,td{border:1px solid #ddd;padding:6px 10px;font-size:12px}th{background:#f0f0f0}
   .v{color:green}.r{color:red}</style></head><body>
-  <h1>⚡ StockMaster Pro — Historial de Ventas</h1>
-  <p>Generado: ${now()}</p>
+  <h1>⚡ StockMaster Pro — Historial de Ventas</h1><p>Generado: ${now()}</p>
   <table><thead><tr><th>#</th><th>Fecha</th><th>Empleado</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Tipo</th></tr></thead><tbody>
-  ${rows.map(s=>`<tr>
-    <td>#${s.id}</td><td>${s.date}</td><td>${s.emp}</td><td>${s.clientName||'—'}</td>
+  ${rows.map(s=>`<tr><td>#${s.id}</td><td>${s.date}</td><td>${s.emp}</td><td>${s.clientName||'—'}</td>
     <td>${s.items.map(i=>i.name+' ×'+i.qty).join(', ')}</td>
     <td class="${s.type==='venta'?'v':'r'}">${s.type==='reembolso'?'−':''}${cop(s.total)}</td>
-    <td>${s.type}</td>
-  </tr>`).join('')}
-  </tbody></table></body></html>`;
-  const w=window.open('','_blank');
-  w.document.write(html);w.document.close();w.print();
+    <td>${s.type}</td></tr>`).join('')}
+  </tbody></table></body></html>`);
+  w.document.close();w.print();
 }
 
 function exportMySalesPDF(){
   const empId=state.currentUser.empId;
   const mine=state.sales.filter(s=>s.empId===empId);
-  let html=`<html><head><title>Mis Ventas</title>
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Mis Ventas</title>
   <style>body{font-family:sans-serif;padding:20px}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}
   th,td{border:1px solid #ddd;padding:6px 10px;font-size:12px}th{background:#f0f0f0}
   .v{color:green}.r{color:red}</style></head><body>
-  <h1>⚡ Mis Ventas — ${state.currentUser.name}</h1>
-  <p>Generado: ${now()}</p>
+  <h1>⚡ Mis Ventas — ${state.currentUser.name}</h1><p>Generado: ${now()}</p>
   <table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Tipo</th><th>Nota</th></tr></thead><tbody>
-  ${mine.map(s=>`<tr>
-    <td>#${s.id}</td><td>${s.date}</td><td>${s.clientName||'—'}</td>
+  ${mine.map(s=>`<tr><td>#${s.id}</td><td>${s.date}</td><td>${s.clientName||'—'}</td>
     <td>${s.items.map(i=>i.name+' ×'+i.qty).join(', ')}</td>
     <td class="${s.type==='venta'?'v':'r'}">${s.type==='reembolso'?'−':''}${cop(s.total)}</td>
-    <td>${s.type}</td><td>${s.note||'—'}</td>
-  </tr>`).join('')}
-  </tbody></table></body></html>`;
-  const w=window.open('','_blank');w.document.write(html);w.document.close();w.print();
+    <td>${s.type}</td><td>${s.note||'—'}</td></tr>`).join('')}
+  </tbody></table></body></html>`);
+  w.document.close();w.print();
 }
 
 function downloadCSV(rows,filename){
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
-  toast('Archivo descargado');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=filename;a.click();toast('Archivo descargado');
 }
 
 // ===================== INIT =====================
 document.querySelectorAll('.modal-bg').forEach(bg=>
   bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('open');}));
 
-async function initApp(){
-  if(getToken()){clearToken();}
-}
+async function initApp(){if(getToken()){clearToken();}}
 initApp();
