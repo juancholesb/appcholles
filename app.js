@@ -813,7 +813,6 @@ function renderMyGoalCard(){
     </div>`;
 }
 
-// ── NUEVA FUNCIÓN: calcula y muestra descuento en tiempo real ──
 function updatePriceInfo(){
   const pid=parseInt(document.getElementById('pvProduct')?.value);
   const price=parseFloat(document.getElementById('pvPrice')?.value)||0;
@@ -984,7 +983,7 @@ async function confirmSale(){
 function showReceiptModal(sale){
   const el=document.getElementById('receiptContent');if(!el)return;
   el.innerHTML=`<div class="receipt">
-    <div class="receipt-brand">⚡ StockMaster Pro</div>
+    <div class="receipt-brand">CBflow Tech</div>
     <div class="receipt-divider"></div>
     <div class="receipt-row"><span>Fecha:</span><strong>${sale.date}</strong></div>
     <div class="receipt-row"><span>Vendedor:</span><strong>${sale.emp}</strong></div>
@@ -1008,7 +1007,7 @@ function showReceiptModal(sale){
 function printReceipt(){
   const content=document.getElementById('receiptContent')?.innerHTML||'';
   const w=window.open('','_blank','width=400,height=600');
-  w.document.write(`<!DOCTYPE html><html><head><title>Comprobante</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>Comprobante CBflow Tech</title>
   <style>body{font-family:monospace;padding:20px;color:#000;background:#fff}
   .receipt-brand{font-size:20px;font-weight:bold;text-align:center;margin-bottom:10px}
   .receipt-divider{border-top:1px dashed #000;margin:8px 0}
@@ -1023,7 +1022,7 @@ function printReceipt(){
 function shareReceiptWhatsApp(){
   const sale=state.lastReceipt;if(!sale)return;
   const items=sale.items.map(i=>`• ${i.name}${i.variant?` (${i.variant})`:''} ×${i.qty} → ${cop(i.qty*i.price)}`).join('\n');
-  const msg=`*Comprobante de venta ⚡*\nFecha: ${sale.date}\nVendedor: ${sale.emp}${sale.clientName?'\nCliente: '+sale.clientName:''}\n\n${items}\n\n*Total: ${cop(sale.total)}*${sale.note?'\nNota: '+sale.note:''}\n\n_StockMaster Pro_`;
+  const msg=`*Comprobante de venta — CBflow Tech*\nFecha: ${sale.date}\nVendedor: ${sale.emp}${sale.clientName?'\nCliente: '+sale.clientName:''}\n\n${items}\n\n*Total: ${cop(sale.total)}*${sale.note?'\nNota: '+sale.note:''}\n\n_CBflow Tech_`;
   const phone=document.getElementById('pvClientPhone')?.value||'';
   window.open(`https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank');
   closeModal('receiptModal');
@@ -1117,7 +1116,7 @@ function exportSalesExcel(){
     const ganancia=s.items.reduce((a,i)=>{const p=state.products.find(x=>x.id===i.pid);return a+(i.price-(p?p.cost:0))*i.qty;},0);
     rows.push([s.id,s.date,s.emp,s.clientName||'',s.items.map(i=>i.name+' ×'+i.qty).join('; '),(s.discount||0)+'%',s.total,s.type==='venta'?ganancia:0,s.type,s.note||'']);
   });
-  downloadCSV(rows,'ventas_stockmaster.csv');
+  downloadCSV(rows,'ventas_cbflowtech.csv');
 }
 
 function exportCierreExcel(){
@@ -1144,11 +1143,11 @@ function exportCierreExcel(){
 function exportSalesPDF(){
   const rows=state.sales.slice(0,50);
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Ventas StockMaster</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>Ventas CBflow Tech</title>
   <style>body{font-family:sans-serif;padding:20px}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}
   th,td{border:1px solid #ddd;padding:6px 10px;font-size:12px}th{background:#f0f0f0}
   .v{color:green}.r{color:red}</style></head><body>
-  <h1>⚡ StockMaster Pro — Historial de Ventas</h1><p>Generado: ${now()}</p>
+  <h1>CBflow Tech — Historial de Ventas</h1><p>Generado: ${now()}</p>
   <table><thead><tr><th>#</th><th>Fecha</th><th>Empleado</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Tipo</th></tr></thead><tbody>
   ${rows.map(s=>`<tr><td>#${s.id}</td><td>${s.date}</td><td>${s.emp}</td><td>${s.clientName||'—'}</td>
     <td>${s.items.map(i=>i.name+' ×'+i.qty).join(', ')}</td>
@@ -1162,11 +1161,11 @@ function exportMySalesPDF(){
   const empId=state.currentUser.empId;
   const mine=state.sales.filter(s=>s.empId===empId);
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Mis Ventas</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>Mis Ventas — CBflow Tech</title>
   <style>body{font-family:sans-serif;padding:20px}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:16px}
   th,td{border:1px solid #ddd;padding:6px 10px;font-size:12px}th{background:#f0f0f0}
   .v{color:green}.r{color:red}</style></head><body>
-  <h1>⚡ Mis Ventas — ${state.currentUser.name}</h1><p>Generado: ${now()}</p>
+  <h1>CBflow Tech — Mis Ventas — ${state.currentUser.name}</h1><p>Generado: ${now()}</p>
   <table><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Tipo</th><th>Nota</th></tr></thead><tbody>
   ${mine.map(s=>`<tr><td>#${s.id}</td><td>${s.date}</td><td>${s.clientName||'—'}</td>
     <td>${s.items.map(i=>i.name+' ×'+i.qty).join(', ')}</td>
