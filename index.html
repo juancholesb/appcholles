@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StockMaster Pro</title>
+  <title>CBflow Tech</title>
   <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -16,9 +16,19 @@
   <div class="login-orb login-orb-2"></div>
   <div class="login-card">
     <div class="login-logo">
-      <span class="logo-icon">⚡</span>
-      <span>StockMaster</span>
-      <span class="logo-pro">PRO</span>
+      <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;filter:drop-shadow(0 0 10px rgba(99,102,241,0.5))">
+        <rect width="100" height="100" rx="22" fill="white"/>
+        <rect x="14" y="14" width="72" height="72" rx="14" fill="#07080d"/>
+        <rect x="26" y="26" width="46" height="48" rx="10" fill="white"/>
+        <rect x="45" y="26" width="11" height="48" fill="#07080d"/>
+        <path d="M56,26 L76,26 Q89,26 89,38 Q89,50 76,50 L56,50 Z" fill="#07080d"/>
+        <path d="M58,33 L74,33 Q82,33 82,38 Q82,43 74,43 L58,43 Z" fill="white"/>
+        <path d="M56,50 L78,50 Q92,50 92,62 Q92,74 78,74 L56,74 Z" fill="#07080d"/>
+        <path d="M58,57 L76,57 Q84,57 84,62 Q84,67 76,67 L58,67 Z" fill="white"/>
+        <rect x="45" y="47" width="13" height="7" fill="#07080d"/>
+      </svg>
+      <span>CBflow</span>
+      <span class="logo-pro">TECH</span>
     </div>
     <p class="login-sub">Sistema de gestión inteligente</p>
     <div class="fg">
@@ -46,9 +56,19 @@
       <span></span><span></span><span></span>
     </button>
     <div class="topbar-brand">
-      <span class="logo-icon-sm">⚡</span> StockMaster <span class="logo-pro-sm">PRO</span>
+      <svg width="24" height="24" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+        <rect width="100" height="100" rx="22" fill="white"/>
+        <rect x="14" y="14" width="72" height="72" rx="14" fill="#07080d"/>
+        <rect x="26" y="26" width="46" height="48" rx="10" fill="white"/>
+        <rect x="45" y="26" width="11" height="48" fill="#07080d"/>
+        <path d="M56,26 L76,26 Q89,26 89,38 Q89,50 76,50 L56,50 Z" fill="#07080d"/>
+        <path d="M58,33 L74,33 Q82,33 82,38 Q82,43 74,43 L58,43 Z" fill="white"/>
+        <path d="M56,50 L78,50 Q92,50 92,62 Q92,74 78,74 L56,74 Z" fill="#07080d"/>
+        <path d="M58,57 L76,57 Q84,57 84,62 Q84,67 76,67 L58,67 Z" fill="white"/>
+        <rect x="45" y="47" width="13" height="7" fill="#07080d"/>
+      </svg>
+      CBflow <span class="logo-pro-sm">TECH</span>
     </div>
-    <!-- Stock low alerts banner -->
     <div class="stock-alerts" id="stockAlerts"></div>
     <div class="topbar-right">
       <div class="user-chip">
@@ -96,8 +116,6 @@
           </div>
         </div>
         <div class="stats-grid" id="stats"></div>
-
-        <!-- Chart -->
         <div class="chart-section">
           <div class="chart-header">
             <h3 class="section-title">Ventas por día</h3>
@@ -108,8 +126,6 @@
           </div>
           <div class="chart-wrap" id="salesChart"></div>
         </div>
-
-        <!-- Ranking + últimas ventas -->
         <div class="dashboard-grid-2">
           <div>
             <h3 class="section-title" style="margin-bottom:14px">🏆 Ranking empleados</h3>
@@ -170,10 +186,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr>
-                <th>Producto / Variantes</th><th>Categoría</th><th>Costo</th>
-                <th>Mayorista</th><th>Stock</th><th>Estado</th><th></th>
-              </tr>
+              <tr><th>Producto / Variantes</th><th>Categoría</th><th>Costo</th><th>Mayorista</th><th>Stock</th><th>Estado</th><th></th></tr>
             </thead>
             <tbody id="inventoryBody"></tbody>
           </table>
@@ -188,9 +201,7 @@
             <div class="page-subtitle">Configura precios y stock por empleado</div>
           </div>
         </div>
-        <div class="info-box">
-          Selecciona un empleado, asígnale precio de venta por producto y unidades de cada variante.
-        </div>
+        <div class="info-box">Selecciona un empleado, asígnale precio de venta por producto y unidades de cada variante.</div>
         <div class="fg" style="max-width:320px;">
           <label>Empleado</label>
           <select id="assignEmpSel" onchange="renderAssignTable()">
@@ -302,7 +313,6 @@
         </div>
         <div class="sale-layout">
           <div class="sale-left">
-            <!-- Agregar al carrito -->
             <div class="card">
               <h4 class="card-title">Agregar al carrito</h4>
               <div class="fg">
@@ -319,11 +329,10 @@
                 <div class="fg"><label>Cantidad</label><input type="number" id="pvQty" min="1" value="1" /></div>
                 <div class="fg">
                   <label>Precio unitario (COP)</label>
-                <input type="number" id="pvPrice" step="1" placeholder="0" oninput="updatePriceInfo()" />
+                  <input type="number" id="pvPrice" step="1" placeholder="0" oninput="updatePriceInfo()" />
                 </div>
               </div>
               <div id="pvStockInfo" class="stock-info-bar"></div>
-              <!-- Descuento -->
               <div class="fg">
                 <label>Descuento (%)</label>
                 <div class="input-with-addon">
@@ -337,16 +346,10 @@
                 Agregar al carrito
               </button>
             </div>
-
-            <!-- Carrito -->
             <div class="card" style="margin-top:16px">
-              <h4 class="card-title">
-                🛒 Carrito
-                <span class="cart-count" id="cartCount">0</span>
-              </h4>
+              <h4 class="card-title">🛒 Carrito <span class="cart-count" id="cartCount">0</span></h4>
               <div id="cartItems"></div>
               <div class="cart-total" id="cartTotal">Total: $0</div>
-              <!-- Datos del cliente -->
               <div class="client-fields">
                 <div class="form-row">
                   <div class="fg"><label>👤 Nombre cliente</label><input type="text" id="pvClientName" placeholder="Opcional" list="clientSuggestions" oninput="filterClientSuggestions()" /></div>
@@ -364,14 +367,11 @@
               </button>
             </div>
           </div>
-
-          <!-- Inventario del empleado -->
           <div class="sale-right">
             <div class="card">
               <h4 class="card-title">📋 Mi inventario asignado</h4>
               <div id="empStockList"></div>
             </div>
-            <!-- Meta del mes -->
             <div class="card" style="margin-top:16px" id="myGoalCard"></div>
           </div>
         </div>
@@ -387,16 +387,11 @@
         </div>
         <div style="max-width:520px;">
           <div class="card">
-            <div class="fg">
-              <label>Producto</label>
-              <select id="refProduct"><option value="">— Selecciona —</option></select>
-            </div>
+            <div class="fg"><label>Producto</label><select id="refProduct"><option value="">— Selecciona —</option></select></div>
             <div class="fg"><label>Cantidad</label><input type="number" id="refQty" min="1" value="1" /></div>
             <div class="fg"><label>Motivo</label><input type="text" id="refReason" placeholder="Producto dañado, error de envío..." /></div>
             <div class="fg"><label>Monto a reembolsar (COP)</label><input type="number" id="refAmount" step="1" placeholder="0" /></div>
-            <button class="btn btn-warn btn-full" onclick="confirmRefund()">
-              ↩️ Registrar reembolso
-            </button>
+            <button class="btn btn-warn btn-full" onclick="confirmRefund()">↩️ Registrar reembolso</button>
           </div>
         </div>
       </div>
@@ -415,7 +410,6 @@
             </button>
           </div>
         </div>
-        <!-- Meta del empleado -->
         <div id="myGoalBanner"></div>
         <div class="table-wrap">
           <table>
@@ -448,8 +442,6 @@
 </div><!-- /#app -->
 
 <!-- ==================== MODALES ==================== -->
-
-<!-- Modal Producto -->
 <div class="modal-bg" id="productModal">
   <div class="modal" style="max-width:560px;">
     <div class="modal-header">
@@ -480,7 +472,6 @@
   </div>
 </div>
 
-<!-- Modal Empleado -->
 <div class="modal-bg" id="empModal">
   <div class="modal">
     <div class="modal-header">
@@ -497,7 +488,6 @@
   </div>
 </div>
 
-<!-- Modal Metas -->
 <div class="modal-bg" id="goalModal">
   <div class="modal" style="max-width:420px;">
     <div class="modal-header">
@@ -505,10 +495,7 @@
       <button class="modal-close" onclick="closeModal('goalModal')">✕</button>
     </div>
     <div class="fg"><label>Empleado</label><input type="text" id="goalEmpName" readonly style="opacity:.7;" /></div>
-    <div class="fg">
-      <label>Mes</label>
-      <input type="month" id="goalMonth" />
-    </div>
+    <div class="fg"><label>Mes</label><input type="month" id="goalMonth" /></div>
     <div class="fg"><label>Meta de ventas (COP)</label><input type="number" id="goalAmount" step="1000" placeholder="1000000" /></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('goalModal')">Cancelar</button>
@@ -517,7 +504,6 @@
   </div>
 </div>
 
-<!-- Modal Comprobante -->
 <div class="modal-bg" id="receiptModal">
   <div class="modal" style="max-width:400px;">
     <div class="modal-header">
@@ -538,7 +524,6 @@
   </div>
 </div>
 
-<!-- Modal confirmar borrar -->
 <div class="modal-bg" id="deleteModal">
   <div class="modal modal-danger" style="max-width:400px;text-align:center;">
     <div class="danger-icon">🗑️</div>
@@ -551,9 +536,7 @@
   </div>
 </div>
 
-<!-- TOAST -->
 <div id="toast"></div>
-
 <script src="app.js"></script>
 </body>
 </html>
